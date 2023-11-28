@@ -1,6 +1,8 @@
-// Encoder Read Code
-// Global variables rCounter and lCounter are incremented with intterupts as the encoders move
-// This code will be used by Odometry to calculate robot position
+// Odometry code. This code tracks the x, y position and angle of the robot based on encoders at each wheel
+// Encoder read code is integrated into this file
+// x, y and theta are global variables which will hold the position
+
+// NOT YET WORKING
 
 #include "PinChangeInterrupt.h"
 
@@ -12,8 +14,14 @@
 #define L_CLK 7
 #define L_DT 8
 
-#define DISTANCE_PER_COUNT 0.018849559 // metres 12cm wheel with 20 encoder counts per revolution
+#define DISTANCE_PER_COUNT 0.018849559 // (metres) 12cm wheel with 20 encoder counts per revolution
 
+// Odometer variables
+double x = 0;
+double y = 0;
+double theta = 0;
+
+// Encoder variables
 // Right Variables
 int rCounter = 0;
 double rDistance = 0;
