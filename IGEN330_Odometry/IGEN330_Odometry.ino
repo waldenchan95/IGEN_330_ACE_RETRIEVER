@@ -7,12 +7,12 @@
 #include "PinChangeInterrupt.h"
 
 // Right encoder pins
-#define R_CLK 2
-#define R_DT 3
+#define R_CLK 9
+#define R_DT 10
 
 // Left encoder pins
-#define L_CLK 7
-#define L_DT 8
+#define L_CLK 11
+#define L_DT 12
 
 #define DISTANCE_PER_COUNT 0.018849559 // (metres) 12cm wheel with 20 encoder counts per revolution
 
@@ -49,12 +49,12 @@ void setup() {
   lInitState = digitalRead(L_CLK);
 
   // attach right encoder interrupts
-  attachInterrupt(digitalPinToPCINT(R_CLK), RightEncoderCount, CHANGE);
-  attachInterrupt(digitalPinToPCINT(L_DT), RightEncoderCount, CHANGE);
+  attachPCINT(digitalPinToPCINT(R_CLK), RightEncoderCount, CHANGE);
+  attachPCINT(digitalPinToPCINT(L_DT), RightEncoderCount, CHANGE);
 
   // attach left encoder interrupts
-  attachInterrupt(digitalPinToPCINT(L_CLK), LeftEncoderCount, CHANGE);
-  attachInterrupt(digitalPinToPCINT(L_DT), LeftEncoderCount, CHANGE);
+  attachPCINT(digitalPinToPCINT(L_CLK), LeftEncoderCount, CHANGE);
+  attachPCINT(digitalPinToPCINT(L_DT), LeftEncoderCount, CHANGE);
 }
 
 void loop() {
@@ -77,17 +77,6 @@ void RightEncoderCount() {
 
     rDistance = rCounter * DISTANCE_PER_COUNT;
 
-    Serial.print("Right: ");
-    Serial.print(rCounter);
-    Serial.print(" ");
-    Serial.print("R_Distance: ");
-    Serial.print(rDistance);
-    Serial.print(" ");
-    Serial.print("Left: ");
-    Serial.print(lCounter);
-    Serial.print(" ");
-    Serial.print("L_Distance: ");
-    Serial.println(lDistance);
   }
 
   // Remember last CLK state for next cycle
@@ -110,17 +99,6 @@ void LeftEncoderCount() {
 
     lDistance = lCounter * DISTANCE_PER_COUNT;
     
-    Serial.print("Right: ");
-    Serial.print(rCounter);
-    Serial.print(" ");
-    Serial.print("R_Distance: ");
-    Serial.print(rDistance);
-    Serial.print(" ");
-    Serial.print("Left: ");
-    Serial.print(lCounter);
-    Serial.print(" ");
-    Serial.print("L_Distance: ");
-    Serial.println(lDistance);
   }
 
   // Remember last CLK state for next cycle
