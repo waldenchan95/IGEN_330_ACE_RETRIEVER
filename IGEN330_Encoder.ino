@@ -2,7 +2,6 @@
 // Global variables rCounter and lCounter are incremented with intterupts as the encoders move
 // This code will be used by Odometry to calculate robot position
 
-
 #include "PinChangeInterrupt.h"
 
 // Right encoder pins
@@ -13,13 +12,17 @@
 #define L_CLK 7
 #define L_DT 8
 
+#define DISTANCE_PER_COUNT 0.018849559 // metres 12cm wheel with 20 encoder counts per revolution
+
 // Right Variables
 int rCounter = 0;
+double rDistance = 0;
 int rCurrentState;
 int rInitState;
 
 // Left Variables
 int lCounter = 0;
+double lDistance = 0;
 int lCurrentState;
 int lInitState;
 
@@ -63,12 +66,20 @@ void RightEncoderCount() {
       // Encoder is rotating clockwise so we increment the counter
       rCounter--;
     }
-    
-    // print the value in the serial monitor window
+
+    rDistance = rCounter * DISTANCE_PER_COUNT;
+
     Serial.print("Right: ");
     Serial.print(rCounter);
+    Serial.print(" ");
+    Serial.print("R_Distance: ");
+    Serial.print(rDistance);
+    Serial.print(" ");
     Serial.print("Left: ");
     Serial.print(lCounter);
+    Serial.print(" ");
+    Serial.print("L_Distance: ");
+    Serial.println(lDistance);
   }
 
   // Remember last CLK state for next cycle
@@ -88,12 +99,20 @@ void LeftEncoderCount() {
       // Encoder is rotating clockwise so we increment the counter
       lCounter--;
     }
+
+    lDistance = lCounter * DISTANCE_PER_COUNT;
     
-    // print the value in the serial monitor window
     Serial.print("Right: ");
     Serial.print(rCounter);
+    Serial.print(" ");
+    Serial.print("R_Distance: ");
+    Serial.print(rDistance);
+    Serial.print(" ");
     Serial.print("Left: ");
     Serial.print(lCounter);
+    Serial.print(" ");
+    Serial.print("L_Distance: ");
+    Serial.println(lDistance);
   }
 
   // Remember last CLK state for next cycle
