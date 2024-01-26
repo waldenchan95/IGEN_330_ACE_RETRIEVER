@@ -1,7 +1,6 @@
 #include <Pixy2.h>
-
 #include <math.h>
-
+#include <PWM.h>
 //Set pixy as main object
 Pixy2 pixy;
 
@@ -19,6 +18,8 @@ const int LinF = 3;
 const int conR = 6;
 const int conL = 5;
 
+int input_frequency = 200
+
 // control variables
 
 int x_error = 0;
@@ -26,6 +27,32 @@ int y_error = 0;
 
 int RightMotorSpeed;
 int LeftMotorSpeed;
+
+void set_pwm_frequency(int frequency){
+  bool set_R_B_in = SetPinFrequency(RinB, frequency);
+  Serial.print("Setting R_B Frequency: ");
+  Serial.print(set_R_B_in);
+
+  bool set_R_F_in = SetPinFrequency(RinF, frequency);
+  Serial.print("Setting R_F Frequency: ");
+  Serial.print(set_R_F_in);
+
+  bool set_L_B_in = SetPinFrequency(LinB, frequency);
+  Serial.print("Setting L_B Frequency: ");
+  Serial.print(set_L_B_in);
+
+  bool set_L_F_in = SetPinFrequency(LinF, frequency);
+  Serial.print("Setting L_F Frequency: ");
+  Serial.print(set_L_F_in);
+
+  bool set_con_R_in = SetPinFrequency(conR, frequency);
+  Serial.print("Setting conR Frequency: ");
+  Serial.print(set_con_R_in);
+
+  bool set_con_L_in = SetPinFrequency(conL, frequency);
+  Serial.print("Setting conL Frequency: ");
+  Serial.print(set_con_L_in);
+}
 
 void setup() {
   // initialize output pins
@@ -36,7 +63,7 @@ void setup() {
 
   pinMode(conR, OUTPUT);
   pinMode(conL, OUTPUT);
-
+  InitTimersSafe();
   // start serial communication
   Serial.begin(115200);
   Serial.print("Starting...\n");
@@ -53,11 +80,11 @@ void RMotor (int speed) {
   if (speed >= 0) {
     digitalWrite(RinF, HIGH);
     digitalWrite(RinB, LOW);
-    analogWrite(conR, speed);
+    pwmWrite(conR, speed);
   } else { // Backwards is input negative
     digitalWrite(RinF, LOW);
     digitalWrite(RinB, HIGH);
-    analogWrite(conR, abs(speed));
+    pwmWrite(conR, abs(speed));
   }
 }
 
@@ -66,21 +93,21 @@ void LMotor (int speed) {
   if (speed >= 0) {
     digitalWrite(LinF, HIGH);
     digitalWrite(LinB, LOW);
-    analogWrite(conL, speed);
+    pwmWrite(conL, speed);
   } else { // Backwards is input negative
     digitalWrite(LinF, LOW);
     digitalWrite(LinB, HIGH);
-    analogWrite(conL, abs(speed));
+    pwmWrite(conL, abs(speed));
   }
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
 
-    int i;
+  int i;
   // grab blocks!
   pixy.ccc.getBlocks();
- 
+
   // If there are detect blocks, print them!
  
   if (pixy.ccc.numBlocks)
@@ -94,7 +121,7 @@ void loop() {
         y_position_ooi = pixy.ccc.blocks[i].m_y;
     }
   }
- 
+    set_pwm_frequency(input_frequency);
     x_error = map(x_position_ooi, 0, 316, -100, 100);
     y_error = map(y_position_ooi, 0, 316, 400, -150);
 
@@ -115,14 +142,14 @@ void loop() {
     }
 
    
-    if(RightMotorSpeed < -255)
+    if(LeftMotorSpeed < -255)
     {
-      RightMotorSpeed = -255;
+      LeftMotorSpeed = -255;
     }
    
-    if(RightMotorSpeed < -255)
+    if(LeftMotorSpeed < -255)
     {
-      RightMotorSpeed = -255;
+      LeftMotorSpeed = -255;
     }
 
     Serial.print("RightSpeed: ");
