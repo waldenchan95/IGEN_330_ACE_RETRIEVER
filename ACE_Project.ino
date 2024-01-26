@@ -78,12 +78,12 @@ void setup() {
 void RMotor (int speed) {
   // Forwards if input positive
   if (speed >= 0) {
-    digitalWrite(RinF, HIGH);
-    digitalWrite(RinB, LOW);
+    pwmWrite(RinF, HIGH);
+    pwmWrite(RinB, LOW);
     pwmWrite(conR, speed);
   } else { // Backwards is input negative
-    digitalWrite(RinF, LOW);
-    digitalWrite(RinB, HIGH);
+    pwmWrite(RinF, LOW);
+    pwmWrite(RinB, HIGH);
     pwmWrite(conR, abs(speed));
   }
 }
@@ -91,12 +91,12 @@ void RMotor (int speed) {
 void LMotor (int speed) {
   // Forwards if input positive
   if (speed >= 0) {
-    digitalWrite(LinF, HIGH);
-    digitalWrite(LinB, LOW);
+    pwmWrite(LinF, HIGH);
+    pwmWrite(LinB, LOW);
     pwmWrite(conL, speed);
   } else { // Backwards is input negative
-    digitalWrite(LinF, LOW);
-    digitalWrite(LinB, HIGH);
+    pwmWrite(LinF, LOW);
+    pwmWrite(LinB, HIGH);
     pwmWrite(conL, abs(speed));
   }
 }
