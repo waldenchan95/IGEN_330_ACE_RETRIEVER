@@ -7,8 +7,8 @@
 To ensure that our team has the same pins at all times for reduction of debugging here are the following pins that we have defined:
 ```cpp
 
-const int conR = 6;
-const int conL = 5;
+const int conR = 9;
+const int conL = 10;
 
 // Right encoder pins
 #define R_CLK 9
