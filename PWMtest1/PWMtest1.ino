@@ -52,7 +52,7 @@ void RMotor (int speed) {
   int adjSpeed = map(speed, -255, 255, PWM_LOW, PWM_HIGH);
   pwmWrite(conR, adjSpeed);
   Serial.print("RightSpeed: ");
-  Serial.print(Speed);
+  Serial.print(speed);
   Serial.print("   Right_realspeed: ");
   Serial.println(adjSpeed);
 }
@@ -61,7 +61,7 @@ void LMotor (int speed) {
   int adjSpeed = map(speed, -255, 255, PWM_LOW, PWM_HIGH);
   pwmWrite(conL, adjSpeed);
   Serial.print("  LeftSpeed: ");
-  Serial.print(Speed);
+  Serial.print(speed);
   Serial.print("   Left_realspeed: ");
   Serial.println(adjSpeed);
 }
