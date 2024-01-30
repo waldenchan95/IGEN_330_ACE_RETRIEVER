@@ -36,4 +36,8 @@ void loop() {
     y_error = map(y_position_ooi, 0, 316, 400, -150);
 
     x_error = int(pow(x_error, 3)/5000);
+    Serial.print("X_error: ");
+    Serial.print(x_error);
+    Serial.print("Y_error: ");
+    Serial.print(y_error);
 }
