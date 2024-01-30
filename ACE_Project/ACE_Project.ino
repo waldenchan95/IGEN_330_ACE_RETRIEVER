@@ -1,5 +1,6 @@
 #include <Pixy2.h>
-#inclue "MotorControls/MotorControls.ino"
+
+#include "/Users/lucagarner/Coding/IGEN 330/IGEN_330_ACE_RETRIEVER/MotorControls/MotorControls.ino"
 #include <math.h>
 
 //Set pixy as main object
@@ -12,8 +13,8 @@ int y_position_ooi; //y position of object of interest
 
 // drive variables
 
-const int conR = 6;
-const int conL = 5;
+const int conR = 10;
+const int conL = 9;
 const int frequency = 150;
 // control variables
 
@@ -25,21 +26,20 @@ int LeftMotorSpeed;
 
 void setup() {
   // initialize output pins
-  pinMode(RinB, OUTPUT);
-  pinMode(RinF, OUTPUT);
-  pinMode(LinB, OUTPUT);
-  pinMode(LinF, OUTPUT);
 
   pinMode(conR, OUTPUT);
   pinMode(conL, OUTPUT);
 
   // start serial communication
-  Serial.begin(115200);
+  Serial.begin(9600);
   Serial.print("Starting...\n");
 
+  set_pwm_frequency(conL, frequency);
+
+  delay(100);
+  
   // intialize pixy library
   pixy.init();
-  set_pwm_frequency(frequency);
 }
 
 
@@ -115,6 +115,6 @@ void loop() {
     {
       LeftMotorSpeed = -255;
     }
-    RMotor(RightMotorSpeed);
-    LMotor(LeftMotorSpeed);
+    RMotor(conR, RightMotorSpeed);
+    LMotor(conL, LeftMotorSpeed);
   }
