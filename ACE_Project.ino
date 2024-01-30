@@ -1,5 +1,5 @@
 #include <Pixy2.h>
-
+#inclue "MotorControls/MotorControls.ino"
 #include <math.h>
 
 //Set pixy as main object
@@ -12,13 +12,9 @@ int y_position_ooi; //y position of object of interest
 
 // drive variables
 
-const int RinB = 8;
-const int RinF = 7;
-const int LinB = 2;
-const int LinF = 3;
 const int conR = 6;
 const int conL = 5;
-
+const int frequency = 150;
 // control variables
 
 int x_error = 0;
@@ -43,36 +39,9 @@ void setup() {
 
   // intialize pixy library
   pixy.init();
-
+  set_pwm_frequency(frequency);
 }
 
-
-// Functions
-void RMotor (int speed) {
-  // Forwards if input positive
-  if (speed >= 0) {
-    digitalWrite(RinF, HIGH);
-    digitalWrite(RinB, LOW);
-    analogWrite(conR, speed);
-  } else { // Backwards is input negative
-    digitalWrite(RinF, LOW);
-    digitalWrite(RinB, HIGH);
-    analogWrite(conR, abs(speed));
-  }
-}
-
-void LMotor (int speed) {
-  // Forwards if input positive
-  if (speed >= 0) {
-    digitalWrite(LinF, HIGH);
-    digitalWrite(LinB, LOW);
-    analogWrite(conL, speed);
-  } else { // Backwards is input negative
-    digitalWrite(LinF, LOW);
-    digitalWrite(LinB, HIGH);
-    analogWrite(conL, abs(speed));
-  }
-}
 
 void loop() {
   // put your main code here, to run repeatedly:
@@ -103,7 +72,7 @@ void loop() {
     RightMotorSpeed = y_error - x_error;
     LeftMotorSpeed = y_error + x_error;
 
-
+    //If the motors are > 255, or < 255, we just set 255 to our maximum
     if(RightMotorSpeed > 255)
     {
       RightMotorSpeed = 255;
@@ -125,12 +94,27 @@ void loop() {
       RightMotorSpeed = -255;
     }
 
-    Serial.print("RightSpeed: ");
-    Serial.print(RightMotorSpeed);
 
-    Serial.print("LeftSpeed: ");
-    Serial.println(LeftMotorSpeed);
+    if(LeftMotorSpeed > 255)
+    {
+      LeftMotorSpeed = 255;
+    }
+   
+    if(LeftMotorSpeed > 255)
+    {
+      LeftMotorSpeed = 255;
+    }
 
+   
+    if(LeftMotorSpeed < -255)
+    {
+      LeftMotorSpeed = -255;
+    }
+   
+    if(LeftMotorSpeed < -255)
+    {
+      LeftMotorSpeed = -255;
+    }
     RMotor(RightMotorSpeed);
     LMotor(LeftMotorSpeed);
   }
