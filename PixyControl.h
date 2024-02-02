@@ -1,4 +1,5 @@
 #include <Pixy2.h>
+
 Pixy2 pixy;
 
 int x_position_ooi; //x position of object of interest

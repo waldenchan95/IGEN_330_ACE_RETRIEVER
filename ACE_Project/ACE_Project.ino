@@ -1,7 +1,8 @@
 #include <Pixy2.h>
-
-#include "/Users/lucagarner/Coding/IGEN 330/IGEN_330_ACE_RETRIEVER/MotorControls/MotorControls.ino"
 #include <math.h>
+
+#include <MotorControls.h>
+#include <PixyControl.h>
 
 //Set pixy as main object
 Pixy2 pixy;
