@@ -1,4 +1,5 @@
 #include <Pixy2.h>
+#include <math.h>
 Pixy2 pixy;
 
 int x_position_ooi; //x position of object of interest
@@ -8,6 +9,7 @@ int x_error = 0;
 int y_error = 0;
 
 void setup() {
+  Serial.begin(9600);
   // put your setup code here, to run once:
   pixy.init();
 }
@@ -38,6 +40,6 @@ void loop() {
     x_error = int(pow(x_error, 3)/5000);
     Serial.print("X_error: ");
     Serial.print(x_error);
-    Serial.print("Y_error: ");
-    Serial.print(y_error);
+    Serial.print("  Y_error: ");
+    Serial.println(y_error);
 }
