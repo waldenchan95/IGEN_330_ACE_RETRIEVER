@@ -1,106 +1,116 @@
-// Odometry code. This code tracks the x, y position and angle of the robot based on encoders at each wheel
-// Encoder read code is integrated into this file
-// x, y and theta are global variables which will hold the position
-
-// NOT YET WORKING
-
-#include "PinChangeInterrupt.h"
+// Encoder Read Code
+// Global variables rCounter and lCounter are incremented with intterupts as the encoders move
+// This code will be used by Odometry to calculate robot position
 
 // Right encoder pins
-#define R_CLK 9
-#define R_DT 10
+#define R_CLK 2
+#define R_DT 4
 
 // Left encoder pins
-#define L_CLK 11
-#define L_DT 12
+#define L_CLK 3
+#define L_DT 5
 
-#define DISTANCE_PER_COUNT 0.018849559 // (metres) 12cm wheel with 20 encoder counts per revolution
+#define DISTANCE_PER_COUNT 0.018849559 // (metres) 12cm wheel with 90 encoder counts per revolution
+#define BOT_WIDTH 0.4 // (metres)
+#define SAMPLE_RATE 80 // (ms)
 
-// Odometer variables
-double x = 0;
-double y = 0;
-double theta = 0;
-
-// Encoder variables
 // Right Variables
 int rCounter = 0;
 double rDistance = 0;
-int rCurrentState;
-int rInitState;
 
 // Left Variables
 int lCounter = 0;
 double lDistance = 0;
-int lCurrentState;
-int lInitState;
+
+// Odometry Variables
+double x = 0;
+double dx = 0;
+double y = 0;
+double dy = 0;
+double a = 1.570796327;
+double da = 0;
+double dd = 0;
+unsigned long lastSample = 0;
 
 void setup() {
-
-  pinMode(R_CLK, INPUT);
-  pinMode(R_DT, INPUT);
-  pinMode(L_CLK, INPUT);
-  pinMode(L_DT, INPUT);
-
-  // Setup Serial Monitor
   Serial.begin(9600);
-
-  // Read the initial state of CLKs
-  rInitState = digitalRead(R_CLK);
-  lInitState = digitalRead(L_CLK);
-
-  // attach right encoder interrupts
-  attachPCINT(digitalPinToPCINT(R_CLK), RightEncoderCount, CHANGE);
-  attachPCINT(digitalPinToPCINT(L_DT), RightEncoderCount, CHANGE);
-
-  // attach left encoder interrupts
-  attachPCINT(digitalPinToPCINT(L_CLK), LeftEncoderCount, CHANGE);
-  attachPCINT(digitalPinToPCINT(L_DT), LeftEncoderCount, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(R_CLK),  rMove, FALLING);
+  attachInterrupt(digitalPinToInterrupt(L_CLK),  lMove, FALLING);
+  pinMode(R_DT,INPUT);
+  pinMode(L_DT,INPUT);
 }
 
-void loop() {
-
-}
-
-void RightEncoderCount() {
-
-  // Read the current state of CLK
-  rCurrentState = digitalRead(R_CLK);
-  // If last and current state of CLK are different, then we can be sure that the pulse occurred
-  if (rCurrentState != rInitState  && rCurrentState == 1) {
-    // Encoder is rotating counterclockwise so we decrement the counter
-    if (digitalRead(R_DT) != rCurrentState) {
+void rMove() {  
+    if (digitalRead(R_DT) == 1) {
       rCounter++;
-    } else {
-      // Encoder is rotating clockwise so we increment the counter
-      rCounter--;
     }
+    if (digitalRead(R_DT) == 0) {
+      rCounter--;  
+    } 
 
     rDistance = rCounter * DISTANCE_PER_COUNT;
 
-  }
-
-  // Remember last CLK state for next cycle
-  rInitState = rCurrentState;
+//    Serial.print("Right: ");
+//    Serial.print(rCounter);
+//    Serial.print(" ");
+//    Serial.print("R_Distance: ");
+//    Serial.print(rDistance);
+//    Serial.print(" ");
+//    Serial.print("Left: ");
+//    Serial.print(lCounter);
+//    Serial.print(" ");
+//    Serial.print("L_Distance: ");
+//    Serial.println(lDistance);
 }
 
-void LeftEncoderCount() {
-
-  // Read the current state of CLK
-  lCurrentState = digitalRead(L_CLK);
-  // If last and current state of CLK are different, then we can be sure that the pulse occurred
-  if (lCurrentState != lInitState  && lCurrentState == 1) {
-    // Encoder is rotating counterclockwise so we decrement the counter
-    if (digitalRead(L_DT) != lCurrentState) {
+void lMove() {  
+    if (digitalRead(L_DT) == 1) {
       lCounter++;
-    } else {
-      // Encoder is rotating clockwise so we increment the counter
-      lCounter--;
     }
+    if (digitalRead(L_DT) == 0) {
+      lCounter--;  
+    } 
 
     lDistance = lCounter * DISTANCE_PER_COUNT;
-    
-  }
 
-  // Remember last CLK state for next cycle
-  lInitState = lCurrentState;
+//    Serial.print("Right: ");
+//    Serial.print(rCounter);
+//    Serial.print(" ");
+//    Serial.print("R_Distance: ");
+//    Serial.print(rDistance);
+//    Serial.print(" ");
+//    Serial.print("Left: ");
+//    Serial.print(lCounter);
+//    Serial.print(" ");
+//    Serial.print("L_Distance: ");
+//    Serial.println(lDistance);
+}
+
+void loop() {
+  if (millis() - lastSample > SAMPLE_RATE) {
+    lastSample = millis();
+    da = atan( (rDistance - lDistance) / BOT_WIDTH);
+    dd = (rDistance + lDistance) / 2.0;
+    a = a + da;
+    dx = cos(a) * dd;
+    dy = sin(a) * dd;
+    x = x + dx;
+    y = y + dy;
+
+    rDistance = 0;
+    lDistance = 0;
+    rCounter = 0;
+    lCounter = 0;
+    dd = 0;
+    da = 0;
+    dx = 0;
+    dy = 0;
+
+    Serial.print("  x = ");
+    Serial.print(x, 4);
+    Serial.print("  y = ");
+    Serial.print(y, 4);
+    Serial.print("  angle = ");
+    Serial.println(a, 4);
+  }
 }
