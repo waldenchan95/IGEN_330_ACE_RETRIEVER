@@ -1,5 +1,5 @@
 // Odometry Header File
-// Include in main file and follow instruction for creating of variables and defining constants
+// Include in main file
 // User will have constantly updated x, y, and a (angle) position data
 
 // Right encoder pins
@@ -11,27 +11,18 @@
 #define L_DT 5
 
 // Constants
-// define in main code:
-// botWidth
-// dPerClk
 #define SAMPLE_RATE 80 // (ms)
 
-// More:
-// create variables 
-// double x = 0
-// double y = 0
-// double a = 1.570796327 (depends on coordinate system)
-// unsigned long lastEncoderSample = 0
-// int rCounter = 0
-// int lCounter = 0
+extern const double botWidth = 0.4; // m
+extern const double dPerClk = 0.01;
 
-// Interrupt initialization
-void StartOdometry() {
-  attachInterrupt(digitalPinToInterrupt(R_CLK),  rMove, FALLING);
-  attachInterrupt(digitalPinToInterrupt(L_CLK),  lMove, FALLING);
-  pinMode(R_DT,INPUT);
-  pinMode(L_DT,INPUT);
-}
+
+extern double x = 0;
+extern double y = 0;
+extern double a = 1.570796327;
+extern unsigned long lastEncoderSample = 0;
+extern int rCounter = 0;
+extern int lCounter = 0;
 
 // ISR's
 void rMove() {  
@@ -52,11 +43,23 @@ void lMove() {
     } 
 }
 
+// Interrupt initialization
+void StartOdometry() {
+  attachInterrupt(digitalPinToInterrupt(R_CLK),  rMove, FALLING);
+  attachInterrupt(digitalPinToInterrupt(L_CLK),  lMove, FALLING);
+  pinMode(R_DT,INPUT);
+  pinMode(L_DT,INPUT);
+}
+
 // Odometry
 void Odometry() {
+
+  double rDistance = rCounter * dPerClk;
+  double lDistance = lCounter * dPerClk;
+  
   if (millis() - lastEncoderSample > SAMPLE_RATE) {
-    lastSample = millis();
-    double da = atan( (rDistance - lDistance) / BOT_WIDTH);
+    lastEncoderSample = millis();
+    double da = atan( (rDistance - lDistance) / botWidth);
     double dd = (rDistance + lDistance) / 2.0;
     a = a + da;
     double dx = cos(a) * dd;
