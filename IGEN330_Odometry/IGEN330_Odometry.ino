@@ -1,18 +1,17 @@
-// Encoder Read Code
 // Global variables rCounter and lCounter are incremented with intterupts as the encoders move
 // This code will be used by Odometry to calculate robot position
 
 // Right encoder pins
-#define R_CLK 2
-#define R_DT 4
+const int R_CLK = 2
+const int R_DT = 4
 
 // Left encoder pins
-#define L_CLK 3
-#define L_DT 5
+const int L_CLK = 3
+const int L_DT = 5
 
-#define DISTANCE_PER_COUNT 0.018849559 // (metres) 12cm wheel with 90 encoder counts per revolution
-#define BOT_WIDTH 0.4 // (metres)
-#define SAMPLE_RATE 80 // (ms)
+const int DISTANCE_PER_COUNT = 0.018849559 // (metres) 12cm wheel with 90 encoder counts per revolution
+const int BOT_WIDTH = 0.4 // (metres)
+const int SAMPLE_RATE = 80 // (ms)
 
 // Right Variables
 int rCounter = 0;
