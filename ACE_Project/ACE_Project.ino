@@ -86,7 +86,6 @@ void loop() {
       RightMotorSpeed = 255;
     }
 
-   
     if(RightMotorSpeed < -255)
     {
       RightMotorSpeed = -255;
@@ -118,6 +117,12 @@ void loop() {
     {
       LeftMotorSpeed = -255;
     }
+    
+    Serial.print("R_speed: ");
+    Serial.println(RightMotorSpeed);
+    Serial.print("L_speed: ");
+    Serial.println(LeftMotorSpeed);
+    
     RMotor(conR, RightMotorSpeed);
     LMotor(conL, LeftMotorSpeed);
 
