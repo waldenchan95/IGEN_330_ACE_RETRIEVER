@@ -3,6 +3,7 @@
 
 #include <MotorControls.h>
 #include <PixyControl.h>
+#include <Odometry.h>
 
 //Set pixy as main object
 Pixy2 pixy;
@@ -41,6 +42,7 @@ void setup() {
   
   // intialize pixy library
   pixy.init();
+  StartOdometry();
 }
 
 
@@ -118,4 +120,6 @@ void loop() {
     }
     RMotor(conR, RightMotorSpeed);
     LMotor(conL, LeftMotorSpeed);
+
+    Odometry();
   }
