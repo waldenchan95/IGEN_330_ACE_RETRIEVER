@@ -8,28 +8,29 @@
 //Set pixy as main object
 Pixy2 pixy;
 
- int x_position_ooi; //x position of object of interest
- int y_position_ooi; //y position of object of interest
+// pixy variables
+int x_position_ooi; //x position of object of interest
+int y_position_ooi; //y position of object of interest
 
- int x_error = 0;
- int y_error = 0;
+int x_error = 0;
+int y_error = 0;
 
-// drive variables
-
+// constants
 const int conR = 10;
 const int conL = 9;
-const int conI = 3;
+const int conI = 6;
 const int frequency = 150;
-// control variables
+const int maxSpeed = 100;
 
+// control variables
 int RightMotorSpeed;
 int LeftMotorSpeed;
 
 void set_pwm_frequency(int frequency) {
 
-  Timer2_Initialize();
+  Timer0_Initialize();
   bool set_con_L_in = SetPinFrequencySafe(conL, frequency);
-  bool set_con_I_in = Timer2_SetFrequency(frequency);
+  bool set_con_I_in = Timer0_SetFrequency(frequency);
   Serial.print("  Setting conL Frequency: ");
   Serial.print(set_con_L_in);
   Serial.print("  Setting conI Frequency: ");
@@ -46,10 +47,10 @@ void setup() {
   // start serial communication
   Serial.begin(9600);
   Serial.print("Starting...\n");
+
+  //Initialize PWM
   InitTimersSafe();
   set_pwm_frequency(frequency);
-
-  delay(100);
   
   // intialize pixy library
   pixy.init();
@@ -59,24 +60,20 @@ void setup() {
 
 void loop() {
 
-      int i;
-  // grab blocks!
-
-  //pixy.ccc.getBlocks();   this was original
-  pixy.ccc.getBlocks();
-  // If there are detect blocks, print them!
- 
-  if (pixy.ccc.numBlocks)
-  {
-    //Serial.print("Detected ");
-    //Serial.print(pixy.ccc.numBlocks);
-    //Serial.println(" objects");
-    for (i=0; i<pixy.ccc.numBlocks; i++)
+    int i;
+    pixy.ccc.getBlocks();
+   
+    if (pixy.ccc.numBlocks)
     {
-        x_position_ooi = pixy.ccc.blocks[i].m_x;
-        y_position_ooi = pixy.ccc.blocks[i].m_y;
+      //Serial.print("Detected ");
+      //Serial.print(pixy.ccc.numBlocks);
+      //Serial.println(" objects");
+      for (i=0; i<pixy.ccc.numBlocks; i++)
+      {
+          x_position_ooi = pixy.ccc.blocks[i].m_x;
+          y_position_ooi = pixy.ccc.blocks[i].m_y;
+      }
     }
-  }
  
     x_error = map(x_position_ooi, 0, 316, -100, 100);
     y_error = map(y_position_ooi, 0, 316, 400, -150);
@@ -91,52 +88,62 @@ void loop() {
     RightMotorSpeed = y_error - x_error;
     LeftMotorSpeed = y_error + x_error;
 
-    //If the motors are > 255, or < 255, we just set 255 to our maximum
-    if(RightMotorSpeed > 150)
-    {
-      RightMotorSpeed = 150;
-    }
-   
-    if(RightMotorSpeed > 150)
-    {
-      RightMotorSpeed = 150;
-    }
-
-    if(RightMotorSpeed < -150)
-    {
-      RightMotorSpeed = -150;
-    }
-   
-    if(RightMotorSpeed < -150)
-    {
-      RightMotorSpeed = -150;
-    }
-
-
-    if(LeftMotorSpeed > 150)
-    {
-      LeftMotorSpeed = 150;
-    }
-   
-    if(LeftMotorSpeed > 150)
-    {
-      LeftMotorSpeed = 150;
-    }
-
-    if(LeftMotorSpeed < -150)
-    {
-      LeftMotorSpeed = -150;
-    }
-   
-    if(LeftMotorSpeed < -150)
-    {
-      LeftMotorSpeed = -150;
-    }
+    // cap motor speed to maxSpeed
+    LimitMotors(maxSpeed);
     
     RMotor(conR, RightMotorSpeed);
     LMotor(conL, LeftMotorSpeed);
     IMotor(conI, -30);
-    delay(10);
 
     //Odometry();
-  }
+}
+
+
+// Limits the maximum speed of the motors to a chosen cap
+void LimitMotors(maxSpeed) {
+  
+    //If the motors are > maxSpeed, or < maxSpeed, we set speed to the max
+
+    // Right
+    if(RightMotorSpeed > maxSpeed)
+    {
+      RightMotorSpeed = maxSpeed;
+    }
+   
+    if(RightMotorSpeed > maxSpeed)
+    {
+      RightMotorSpeed = maxSpeed;
+    }
+
+    if(RightMotorSpeed < -maxSpeed)
+    {
+      RightMotorSpeed = -maxSpeed;
+    }
+   
+    if(RightMotorSpeed < -maxSpeed)
+    {
+      RightMotorSpeed = -maxSpeed;
+    }
+
+    // Left
+    if(LeftMotorSpeed > maxSpeed)
+    {
+      LeftMotorSpeed = maxSpeed;
+    }
+   
+    if(LeftMotorSpeed > maxSpeed)
+    {
+      LeftMotorSpeed = maxSpeed;
+    }
+
+    if(LeftMotorSpeed < -maxSpeed)
+    {
+      LeftMotorSpeed = -maxSpeed;
+    }
+   
+    if(LeftMotorSpeed < -maxSpeed)
+    {
+      LeftMotorSpeed = -maxSpeed;
+    }
+  
+}
