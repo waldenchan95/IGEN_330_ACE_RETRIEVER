@@ -16,26 +16,15 @@ int x_error = 0;
 int y_error = 0;
 
 // constants
-const int conR = 10;
-const int conL = 9;
-const int conI = 6;
+const int conR = 10; // pin 10 on timer 1
+const int conL = 9; // pin 9 on timer 1
+const int conI = 11; // pins 11 and 3 on timer 2
 const int frequency = 150;
 const int maxSpeed = 100;
 
 // control variables
 int RightMotorSpeed;
 int LeftMotorSpeed;
-
-void set_pwm_frequency(int frequency) {
-
-  Timer0_Initialize();
-  bool set_con_L_in = SetPinFrequencySafe(conL, frequency);
-  bool set_con_I_in = Timer0_SetFrequency(frequency);
-  Serial.print("  Setting conL Frequency: ");
-  Serial.print(set_con_L_in);
-  Serial.print("  Setting conI Frequency: ");
-  Serial.print(set_con_I_in);
-}
 
 void setup() {
   // initialize output pins
@@ -98,6 +87,18 @@ void loop() {
     //Odometry();
 }
 
+// Changes PWM frequency for a gtiven timer
+void set_pwm_frequency(int frequency) {
+
+  Timer1_Initialize();
+  Timer2_Initialize();
+  bool set_timer1_success = Timer1_SetFrequency(frequency);
+  bool set_timer2_success = Timer2_SetFrequency(frequency);
+  Serial.print("  Setting timer 1 frequency: ");
+  Serial.print(set_timer1_success);
+  Serial.print("  Setting timer 2 frequency: ");
+  Serial.print(set_timer2_success);
+}
 
 // Limits the maximum speed of the motors to a chosen cap
 void LimitMotors(maxSpeed) {
