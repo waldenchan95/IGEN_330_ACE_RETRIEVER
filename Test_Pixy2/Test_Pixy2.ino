@@ -16,7 +16,6 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  int i;
   // grab blocks!
   pixy.ccc.getBlocks();
  
@@ -27,7 +26,7 @@ void loop() {
     //Serial.print("Detected ");
     //Serial.print(pixy.ccc.numBlocks);
     //Serial.println(" objects");
-    for (i=0; i<pixy.ccc.numBlocks; i++)
+    for (int i=0; i<pixy.ccc.numBlocks; i++)
     {
         x_position_ooi = pixy.ccc.blocks[i].m_x;
         y_position_ooi = pixy.ccc.blocks[i].m_y;
