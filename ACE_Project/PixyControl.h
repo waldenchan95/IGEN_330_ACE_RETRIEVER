@@ -1,19 +1,20 @@
 #include <Pixy2.h>
 
-Pixy2 pixy;
+//extern Pixy2 pixy;
 
-int x_position_ooi; //x position of object of interest
-int y_position_ooi; //y position of object of interest
+extern int x_position_ooi; //x position of object of interest
+extern int y_position_ooi; //y position of object of interest
 
-int x_error = 0;
-int y_error = 0;
+extern int x_error = 0;
+extern int y_error = 0;
 
 void pixy_detect() {
   // put your main code here, to run repeatedly:
   int i;
   // grab blocks!
+
+  //pixy.ccc.getBlocks();   this was original
   pixy.ccc.getBlocks();
- 
   // If there are detect blocks, print them!
  
   if (pixy.ccc.numBlocks)
