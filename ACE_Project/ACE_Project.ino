@@ -107,7 +107,6 @@ void loop() {
       LeftMotorSpeed = 255;
     }
 
-   
     if(LeftMotorSpeed < -255)
     {
       LeftMotorSpeed = -255;
