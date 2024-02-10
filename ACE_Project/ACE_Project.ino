@@ -18,9 +18,9 @@ int y_error = 0;
 // constants
 const int conR = 10; // pin 10 on timer 1
 const int conL = 9; // pin 9 on timer 1
-const int conI = 11; // pins 11 and 3 on timer 2
+const int conI = 3; // pins 11 and 3 on timer 2
 const int frequency = 150;
-const int maxSpeed = 100;
+const int maxSpeed = 56;
 
 // control variables
 int RightMotorSpeed;
@@ -67,8 +67,8 @@ void loop() {
     x_error = map(x_position_ooi, 0, 316, -100, 100);
     y_error = map(y_position_ooi, 0, 316, 400, -150);
 
-    x_error = int(pow(x_error, 3)/15000);
-    y_error = y_error / 4;
+    x_error = int(pow(x_error, 3)/22000);
+    y_error = y_error / 10;
     Serial.print("X_error: ");
     Serial.print(x_error);
     Serial.print("Y_error: ");
@@ -80,8 +80,8 @@ void loop() {
     // cap motor speed to maxSpeed
     LimitMotors(maxSpeed);
     
-    RMotor(conR, RightMotorSpeed);
-    LMotor(conL, LeftMotorSpeed);
+    RMotor(conR, RightMotorSpeed/1.4);
+    LMotor(conL, LeftMotorSpeed/1.4z);
     IMotor(conI, -30);
 
     //Odometry();
@@ -101,7 +101,7 @@ void set_pwm_frequency(int frequency) {
 }
 
 // Limits the maximum speed of the motors to a chosen cap
-void LimitMotors(maxSpeed) {
+void LimitMotors(int maxSpeed) {
   
     //If the motors are > maxSpeed, or < maxSpeed, we set speed to the max
 
