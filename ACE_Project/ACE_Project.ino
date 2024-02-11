@@ -20,7 +20,7 @@ const int conR = 10; // pin 10 on timer 1
 const int conL = 9; // pin 9 on timer 1
 const int conI = 3; // pins 11 and 3 on timer 2
 const int frequency = 150;
-const int maxSpeed = 56;
+const int maxSpeed = 42;
 
 // control variables
 int RightMotorSpeed;
@@ -63,12 +63,16 @@ void loop() {
           y_position_ooi = pixy.ccc.blocks[i].m_y;
       }
     }
- 
-    x_error = map(x_position_ooi, 0, 316, -100, 100);
-    y_error = map(y_position_ooi, 0, 316, 400, -150);
 
-    x_error = int(pow(x_error, 3)/22000);
-    y_error = y_error / 10;
+    // algorithm constants
+    const int yMax = 300; // highest number y gets mapped to
+    const double xAdjust = 2; //this number is what x error gets divided by relative to how close the ball 
+    x_error = map(x_position_ooi, 0, 316, -100, 100);
+    y_error = map(y_position_ooi, 0, 316, yMax, 35);
+    x_error = int(8 /(xAdjust - y_error/(yMax/xAdjust)));
+    //pow(x_error, 3)/18000
+    
+    y_error = y_error / 7;
     Serial.print("X_error: ");
     Serial.print(x_error);
     Serial.print("Y_error: ");
@@ -79,9 +83,15 @@ void loop() {
 
     // cap motor speed to maxSpeed
     LimitMotors(maxSpeed);
+
+    if(!pixy.ccc.numBlocks) {
+      RMotor(conR, 0);
+      LMotor(conL, 0);
+    } else{
+      RMotor(conR, RightMotorSpeed);
+      LMotor(conL, LeftMotorSpeed);
+    }
     
-    RMotor(conR, RightMotorSpeed/1.4);
-    LMotor(conL, LeftMotorSpeed/1.4z);
     IMotor(conI, -30);
 
     //Odometry();
