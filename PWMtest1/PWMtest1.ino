@@ -73,34 +73,12 @@ void LMotor (int speed) {
 void loop() {
   // put your main code here, to run repeatedly:
 
-  delay(200);
-
-  for (int i = 0; i < 100; i += 3) {
-    RightMotorSpeed = i;
-    LeftMotorSpeed = i;
-  
-    RMotor(conR, RightMotorSpeed);
-    LMotor(conL, LeftMotorSpeed);
-    IMotor(conI, -25);
-    delay(18);
-  }
-  for (int i = 100; i > -100; i -= 3) {
-    RightMotorSpeed = i;
-    LeftMotorSpeed = i;
-  
-    RMotor(conR, RightMotorSpeed);
-    LMotor(conL, LeftMotorSpeed);
-    IMotor(conI, -25);
-    delay(18);
-  }
-  for (int i = -100; i <= 0; i += 3) {
-    RightMotorSpeed = i;
-    LeftMotorSpeed = i;
-  
-    RMotor(conR, RightMotorSpeed);
-    LMotor(conL, LeftMotorSpeed);
-    IMotor(conI, -25);
-    delay(18);
-  }
+    IMotor(conI, -30);
+    RMotor(conR, 100);
+    LMotor(conL, 100);
+    delay(300);
+    RMotor(conR, 200);
+    LMotor(conL, 200);
+    delay(7000);
   
 }

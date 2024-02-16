@@ -65,14 +65,13 @@ void loop() {
     }
 
     // algorithm constants
-    const int yMax = 300; // highest number y gets mapped to
-    const double xAdjust = 2; //this number is what x error gets divided by relative to how close the ball 
-    x_error = map(x_position_ooi, 0, 316, -100, 100);
-    y_error = map(y_position_ooi, 0, 316, yMax, 35);
-    x_error = int(8 /(xAdjust - y_error/(yMax/xAdjust)));
-    //pow(x_error, 3)/18000
-    
-    y_error = y_error / 7;
+    const int yMax = 255; // highest number y gets mapped to
+    const double xAdjust = 3; //this number is what x error gets divided by relative to how close the ball 
+    x_error = map(x_position_ooi, 0, 316, -40, 40);
+    y_error = map(y_position_ooi, 0, 316, yMax, 45);
+    x_error = int(pow(x_error, 3)/20000);
+    ///(xAdjust - y_error/(yMax/xAdjust))
+    y_error = y_error / 6;
     Serial.print("X_error: ");
     Serial.print(x_error);
     Serial.print("Y_error: ");
