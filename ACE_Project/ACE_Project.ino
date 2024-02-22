@@ -19,14 +19,15 @@ const int conR = 10; // pin 10 on timer 1
 const int conL = 9; // pin 9 on timer 1
 const int conI = 3; // pins 11 and 3 on timer 2 (pin 11 seems to not work though)
 const int frequency = 150; // do not change
-const int maxSpeed = 50; // (0 - 255) Use this to holistically adjust speed of robot, all other mappings are based off this
-const int noBallDelay = 750; // How long robot continues in current direction after loss of ball
 
 // control variables
 int RightMotorSpeed;
 int LeftMotorSpeed;
 
 // Algorithm constants
+// Speed
+const int maxSpeed = 50; // (0 - 255) Use this to holistically adjust speed of robot, all other mappings are based off this
+//
 const int yMax = maxSpeed*1.2; // Highest number y gets mapped to (slightly > overall cap speed)
 const int ymin = 0; // lowest number y gets mapped to (some benefit to having a forward bias)
 const int xErrMax = yMax*0.8; // Maximum absolute x error
@@ -34,6 +35,7 @@ const int quadraticXOvershootFactor = 1.3; // The quadratic pushes above the xma
 const int cubicXOvershootFactor = 1.3; // Same for cubic
 const int chooseXMap = 2; // x mapping choice: Pick 1,2,3 to choose between linear qudratic and cubic
 const int chooseYMap = 1; // y mapping choice: Pick 1 for linear, 2 for square root
+const int noBallDelay = 750; // How long robot continues in current direction after loss of ball
 
 void setup() {
   // initialize output pins
@@ -55,7 +57,6 @@ void setup() {
   //StartOdometry();
 }
 
-
 void loop() {
 
     /// GET PIXY
@@ -72,7 +73,7 @@ void loop() {
           x_position_ooi = pixy.ccc.blocks[i].m_x;
           y_position_ooi = pixy.ccc.blocks[i].m_y;
       }
-    } else { // No Balls detected continue in previous direction for some time before stopping
+    } else { // No Balls detected: continue in previous direction for some time before stopping
       NoBalls();
     }
     
