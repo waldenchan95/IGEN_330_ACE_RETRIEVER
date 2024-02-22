@@ -2,7 +2,6 @@
 #include <math.h>
 
 #include "MotorControls.h"
-//#include "PixyControl.h"
 //#include <Odometry.h>
 
 //Set pixy as main object
@@ -18,13 +17,23 @@ int y_error = 0;
 // constants
 const int conR = 10; // pin 10 on timer 1
 const int conL = 9; // pin 9 on timer 1
-const int conI = 3; // pins 11 and 3 on timer 2
-const int frequency = 150;
-const int maxSpeed = 42;
+const int conI = 3; // pins 11 and 3 on timer 2 (pin 11 seems to not work though)
+const int frequency = 150; // do not change
+const int maxSpeed = 50; // (0 - 255) Use this to holistically adjust speed of robot, all other mappings are based off this
+const int noBallDelay = 750; // How long robot continues in current direction after loss of ball
 
 // control variables
 int RightMotorSpeed;
 int LeftMotorSpeed;
+
+// Algorithm constants
+const int yMax = maxSpeed*1.2; // Highest number y gets mapped to (slightly > overall cap speed)
+const int ymin = 0; // lowest number y gets mapped to (some benefit to having a forward bias)
+const int xErrMax = yMax*0.8; // Maximum absolute x error
+const int quadraticXOvershootFactor = 1.3; // The quadratic pushes above the xmax on the edges
+const int cubicXOvershootFactor = 1.3; // Same for cubic
+const int chooseXMap = 2; // x mapping choice: Pick 1,2,3 to choose between linear qudratic and cubic
+const int chooseYMap = 1; // y mapping choice: Pick 1 for linear, 2 for square root
 
 void setup() {
   // initialize output pins
@@ -49,6 +58,7 @@ void setup() {
 
 void loop() {
 
+    /// GET PIXY
     int i;
     pixy.ccc.getBlocks();
    
@@ -62,41 +72,47 @@ void loop() {
           x_position_ooi = pixy.ccc.blocks[i].m_x;
           y_position_ooi = pixy.ccc.blocks[i].m_y;
       }
+    } else { // No Balls detected continue in previous direction for some time before stopping
+      NoBalls();
     }
-
-    // algorithm constants
-    const int yMax = 255; // highest number y gets mapped to
-    const double xAdjust = 3; //this number is what x error gets divided by relative to how close the ball 
-    x_error = map(x_position_ooi, 0, 316, -40, 40);
-    y_error = map(y_position_ooi, 0, 316, yMax, 45);
-    x_error = int(pow(x_error, 3)/20000);
-    ///(xAdjust - y_error/(yMax/xAdjust))
-    y_error = y_error / 6;
-    Serial.print("X_error: ");
-    Serial.print(x_error);
-    Serial.print("Y_error: ");
-    Serial.print(y_error);
     
+    /// ON_BOARD BALL TRACKING CONTROL MAPPING
+
+    // Map ball pos to motor cntrl vars
+    x_error = map(x_position_ooi, 0, 316, -xErrMax, xErrMax);
+    y_error = map(y_position_ooi, 0, 316, yMax, ymin);
+    MapX();
+    MapY();
+
+    // Set motor speeds
     RightMotorSpeed = y_error - x_error;
     LeftMotorSpeed = y_error + x_error;
 
-    // cap motor speed to maxSpeed
+    // Limit motors to maxSpeed
     LimitMotors(maxSpeed);
 
-    if(!pixy.ccc.numBlocks) {
-      RMotor(conR, 0);
-      LMotor(conL, 0);
-    } else{
-      RMotor(conR, RightMotorSpeed);
-      LMotor(conL, LeftMotorSpeed);
-    }
-    
-    IMotor(conI, -30);
+    // Run intake constantly
+    IMotor(conI, -40);
 
-    //Odometry();
+
+    /// PRINT Data
+    Serial.print("X: ");
+    Serial.print(x_error);
+    Serial.print("  Y: ");
+    Serial.print(y_error);
+    Serial.print("  R: ");
+    Serial.print(RightMotorSpeed);
+    Serial.print("   L: ");
+    Serial.println(LeftMotorSpeed);
 }
 
-// Changes PWM frequency for a gtiven timer
+//END OF MAIN
+//
+//
+//
+///FUNCTIONS BELOW
+
+// Changes PWM frequency for a given timer
 void set_pwm_frequency(int frequency) {
 
   Timer1_Initialize();
@@ -107,6 +123,43 @@ void set_pwm_frequency(int frequency) {
   Serial.print(set_timer1_success);
   Serial.print("  Setting timer 2 frequency: ");
   Serial.print(set_timer2_success);
+}
+
+// x mapping function
+void MapX() {
+  if(chooseXMap == 2) {  // Quadratic
+    if(x_error >= 0) {
+      x_error = quadraticXOvershootFactor*pow(x_error, 2) / (xErrMax^2);
+    } else {
+      x_error = -quadraticXOvershootFactor*pow(abs(x_error), 2) / (xErrMax^2);;
+    }
+  } else if (chooseXMap == 3) { // Cubic
+    x_error = cubicXOvershootFactor*pow(x_error, 3) / (xErrMax^3);
+  } else {   // Otherwise Linear
+    x_error = x_error;
+  }
+}
+
+// y mapping function
+void MapY() {
+  if(chooseYMap == 2) { // Square root
+    y_error = pow(y_error, 0.5)*pow(yMax, 0.5);
+  } else { // Linear
+    y_error = y_error;
+  }
+}
+
+// Scenario: No balls in sight
+void NoBalls() {
+  unsigned long noBallInitTime = millis();
+  while(!pixy.ccc.numBlocks && millis() < noBallInitTime + noBallDelay) {
+    RMotor(conR, RightMotorSpeed);
+    LMotor(conL, LeftMotorSpeed);
+  }
+  RightMotorSpeed = 0;
+  LeftMotorSpeed = 0;
+  RMotor(conR, RightMotorSpeed);
+  LMotor(conL, LeftMotorSpeed);
 }
 
 // Limits the maximum speed of the motors to a chosen cap
@@ -155,5 +208,4 @@ void LimitMotors(int maxSpeed) {
     {
       LeftMotorSpeed = -maxSpeed;
     }
-  
 }
