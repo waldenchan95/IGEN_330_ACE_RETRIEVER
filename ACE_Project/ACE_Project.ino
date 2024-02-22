@@ -34,7 +34,7 @@ const int xErrMax = yMax*0.8; // Maximum absolute x error
 const int quadraticXOvershootFactor = 1.3; // The quadratic pushes above the xmax on the edges
 const int cubicXOvershootFactor = 1.3; // Same for cubic
 const int chooseXMap = 2; // x mapping choice: Pick 1,2,3 to choose between linear qudratic and cubic
-const int chooseYMap = 1; // y mapping choice: Pick 1 for linear, 2 for square root
+const int chooseYMap = 2; // y mapping choice: Pick 1 for linear, 2 for square root
 const int noBallDelay = 750; // How long robot continues in current direction after loss of ball
 
 void setup() {
