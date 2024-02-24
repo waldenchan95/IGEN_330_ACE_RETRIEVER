@@ -8,8 +8,13 @@
 Pixy2 pixy;
 
 // pixy variables
-int x_position_ooi = 158; //x position of object of interest
-int y_position_ooi = 316; //y position of object of interest
+int x_pos_ooi = 158; //x position of object of interest
+int y_pos_ooi = 316; //y position of object of interest
+int last_x_pos_ooi = 158; //previous position used by
+int last_y_pos_ooi = 316;
+int xVelCor = 0;
+int yVelCor = 0;
+int lastPosTime;
 
 int x_error = 0;
 int y_error = 0;
@@ -33,11 +38,13 @@ const int ymin = 0.1*maxSpeed; // lowest number y gets mapped to (some benefit t
 const int xErrMax = yMax*0.5; // Maximum absolute x error
 const int quadraticXOvershootFactor = 1.3; // The quadratic pushes above the xmax on the edges
 const int cubicXOvershootFactor = 1.3; // Same for cubic
-const int chooseXMap = 2; // x mapping choice: Pick 1,2,3 to choose between linear qudratic and cubic
+const int chooseXMap = 2; // x mapping choice: Pick 1,2,3,4 to choose between linear qudratic and cubic, and 4 for custom arctan function
 const int chooseYMap = 1; // y mapping choice: Pick 1 for linear, 2 for square root
 const int noBallDelay = 750; // How long robot continues in current direction after loss of ball
 const int YpctForXSlow = 0.65; // This determines the percentage of y error under which x error is reduced (reduces x sensitivity when ball very close)
 const int pctXReduce = 0.5; // This determines the percent x is reduced to when the ball is very close
+const int xVelCorFactor = 0.8; // How aggressively does the corrected position lead real current position (1 being exactly as much as previous)
+const int yVelCorFactor = 0.8; // ^
 
 void setup() {
   // initialize output pins
@@ -61,29 +68,27 @@ void setup() {
 
 void loop() {
 
+    // Run intake constantly
+    IMotor(conI, -40);
+
     /// GET PIXY
     int i;
     pixy.ccc.getBlocks();
    
-    if (pixy.ccc.numBlocks)
+    if (!pixy.ccc.numBlocks)
     {
-      //Serial.print("Detected ");
-      //Serial.print(pixy.ccc.numBlocks);
-      //Serial.println(" objects");
-      for (i=0; i<pixy.ccc.numBlocks; i++)
-      {
-          x_position_ooi = pixy.ccc.blocks[i].m_x;
-          y_position_ooi = pixy.ccc.blocks[i].m_y;
-      }
-    } else { // No Balls detected: continue in previous direction for some time before stopping
-      NoBalls();
+      NoBalls(); // No Balls detected: continue in previous direction for some time before stopping
     }
-    
+
+    /// VELOCITY CORRECTION
+
+    DynPosCorrection();
+
     /// ON_BOARD BALL TRACKING CONTROL MAPPING
 
     // Map ball pos to motor cntrl vars
-    x_error = map(x_position_ooi, 0, 316, -xErrMax, xErrMax);
-    y_error = map(y_position_ooi, 0, 316, yMax, ymin);
+    x_error = map(x_pos_ooi + xVelCor, 0, 316, -xErrMax, xErrMax);
+    y_error = map(y_pos_ooi + yVelCor, 0, 316, yMax, ymin);
     MapX();
     if(y_error < YpctForXSlow*yMax) {
       x_error = x_error*pctXReduce;
@@ -100,10 +105,6 @@ void loop() {
     // Run Motors
     RMotor(conR, RightMotorSpeed*0.76); ////////NOTE adjusted right speed due to inequal resistance
     LMotor(conL, LeftMotorSpeed*1.05);
-
-    // Run intake constantly
-    IMotor(conI, -40);
-
 
     /// PRINT Data
     Serial.print("X: ");
@@ -143,8 +144,16 @@ void MapX() {
     } else {
       x_error = -quadraticXOvershootFactor*pow(abs(x_error), 2) / (xErrMax^2);;
     }
-  } else if (chooseXMap == 3) { // Cubic
+  } else if(chooseXMap == 3) { // Cubic
     x_error = cubicXOvershootFactor*pow(x_error, 3) / (xErrMax^3);
+  } else if(chooseXMap == 4) { // arctan based; near linear with ramp up in the centre
+    if(x_error > 1) {
+      x_error = 2*(maxSpeed/5)*(atan(x_error/(1.3*(maxSpeed/5)) - 2) + 1.1);
+    } else if(x_error < -1) {
+      x_error = 2*(maxSpeed/5)*(atan(-x_error/(1.3*(maxSpeed/5)) - 2) + 1.1);
+    } else {
+      x_error = 0;
+    }
   } else {   // Otherwise Linear
     x_error = x_error;
   }
@@ -171,7 +180,6 @@ void NoBalls() {
   LeftMotorSpeed = 0;
   x_error = 0;
   y_error = 0;
-
   // Hold motors until ball found again
   while(!pixy.ccc.numBlocks){
     pixy.ccc.getBlocks();
@@ -187,6 +195,24 @@ void NoBalls() {
     Serial.print(RightMotorSpeed);
     Serial.print("   L: ");
     Serial.println(LeftMotorSpeed);
+  }
+}
+
+void DynPosCorrection() {
+  if(x_pos_ooi > last_x_pos_ooi + 90 || y_pos_ooi > last_y_pos_ooi + 90) { // If the new position is vastly far from old position, something odd has happened like ball lost and found again so reset
+    last_x_pos_ooi = x_pos_ooi;
+    last_y_pos_ooi = y_pos_ooi;
+  }
+
+  if(millis() > lastPosTime + 130) {
+    
+    xVelCor = xVelCorFactor*(x_pos_ooi - last_x_pos_ooi);
+    yVelCor = yVelCorFactor*(y_pos_ooi - last_y_pos_ooi);
+    
+    // Set new "last" variables
+    last_x_pos_ooi = x_pos_ooi;
+    last_y_pos_ooi = y_pos_ooi;
+    lastPosTime = millis();
   }
 }
 
