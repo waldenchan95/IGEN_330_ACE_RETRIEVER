@@ -8,8 +8,8 @@
 Pixy2 pixy;
 
 // pixy variables
-int x_position_ooi; //x position of object of interest
-int y_position_ooi; //y position of object of interest
+int x_position_ooi = 158; //x position of object of interest
+int y_position_ooi = 316; //y position of object of interest
 
 int x_error = 0;
 int y_error = 0;
@@ -21,21 +21,23 @@ const int conI = 3; // pins 11 and 3 on timer 2 (pin 11 seems to not work though
 const int frequency = 150; // do not change
 
 // control variables
-int RightMotorSpeed;
-int LeftMotorSpeed;
+int RightMotorSpeed = 0;
+int LeftMotorSpeed = 0;
 
 // Algorithm constants
 // Speed
-const int maxSpeed = 50; // (0 - 255) Use this to holistically adjust speed of robot, all other mappings are based off this
+const int maxSpeed = 30; // (0 - 255) Use this to holistically adjust speed of robot, all other mappings are based off this
 //
 const int yMax = maxSpeed*1.2; // Highest number y gets mapped to (slightly > overall cap speed)
-const int ymin = 0; // lowest number y gets mapped to (some benefit to having a forward bias)
-const int xErrMax = yMax*0.8; // Maximum absolute x error
+const int ymin = 0.1*maxSpeed; // lowest number y gets mapped to (some benefit to having a forward bias)
+const int xErrMax = yMax*0.5; // Maximum absolute x error
 const int quadraticXOvershootFactor = 1.3; // The quadratic pushes above the xmax on the edges
 const int cubicXOvershootFactor = 1.3; // Same for cubic
 const int chooseXMap = 2; // x mapping choice: Pick 1,2,3 to choose between linear qudratic and cubic
-const int chooseYMap = 2; // y mapping choice: Pick 1 for linear, 2 for square root
+const int chooseYMap = 1; // y mapping choice: Pick 1 for linear, 2 for square root
 const int noBallDelay = 750; // How long robot continues in current direction after loss of ball
+const int YpctForXSlow = 0.65; // This determines the percentage of y error under which x error is reduced (reduces x sensitivity when ball very close)
+const int pctXReduce = 0.5; // This determines the percent x is reduced to when the ball is very close
 
 void setup() {
   // initialize output pins
@@ -83,6 +85,9 @@ void loop() {
     x_error = map(x_position_ooi, 0, 316, -xErrMax, xErrMax);
     y_error = map(y_position_ooi, 0, 316, yMax, ymin);
     MapX();
+    if(y_error < YpctForXSlow*yMax) {
+      x_error = x_error*pctXReduce;
+    }
     MapY();
 
     // Set motor speeds
@@ -91,6 +96,10 @@ void loop() {
 
     // Limit motors to maxSpeed
     LimitMotors(maxSpeed);
+
+    // Run Motors
+    RMotor(conR, RightMotorSpeed*0.76); ////////NOTE adjusted right speed due to inequal resistance
+    LMotor(conL, LeftMotorSpeed*1.05);
 
     // Run intake constantly
     IMotor(conI, -40);
@@ -157,10 +166,28 @@ void NoBalls() {
     RMotor(conR, RightMotorSpeed);
     LMotor(conL, LeftMotorSpeed);
   }
+  // Stop after timeout
   RightMotorSpeed = 0;
   LeftMotorSpeed = 0;
-  RMotor(conR, RightMotorSpeed);
-  LMotor(conL, LeftMotorSpeed);
+  x_error = 0;
+  y_error = 0;
+
+  // Hold motors until ball found again
+  while(!pixy.ccc.numBlocks){
+    pixy.ccc.getBlocks();
+    RMotor(conR, RightMotorSpeed);
+    LMotor(conL, LeftMotorSpeed);
+    
+    // PRINT Data
+    Serial.print("X: ");
+    Serial.print(x_error);
+    Serial.print("  Y: ");
+    Serial.print(y_error);
+    Serial.print("  R: ");
+    Serial.print(RightMotorSpeed);
+    Serial.print("   L: ");
+    Serial.println(LeftMotorSpeed);
+  }
 }
 
 // Limits the maximum speed of the motors to a chosen cap

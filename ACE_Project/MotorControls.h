@@ -15,26 +15,26 @@ void set_pwm_frequency(int conL, int frequency) {
 void RMotor (int conR, int speed) {
   int adjSpeed = map(speed, 255, -255, PWM_LOW, PWM_HIGH);
   pwmWrite(conR, adjSpeed);
-  Serial.print("RightSpeed: ");
-  Serial.print(speed);
-  Serial.print("   Right_realspeed: ");
-  Serial.println(adjSpeed);
+//  Serial.print("RightSpeed: ");
+//  Serial.print(speed);
+//  Serial.print("   Right_realspeed: ");
+//  Serial.println(adjSpeed);
 }
 
 void LMotor (int conL, int speed) {
   int adjSpeed = map(speed, -255, 255, PWM_LOW, PWM_HIGH);
   pwmWrite(conL, adjSpeed);
-  Serial.print("  LeftSpeed: ");
-  Serial.print(speed);
-  Serial.print("   Left_realspeed: ");
-  Serial.println(adjSpeed);
+//  Serial.print("  LeftSpeed: ");
+//  Serial.print(speed);
+//  Serial.print("   Left_realspeed: ");
+//  Serial.println(adjSpeed);
 }
 
 void IMotor (int conI, int speed) {
   int adjSpeed = map(speed, -255, 255, PWM_LOW, PWM_HIGH);
   pwmWrite(conI, adjSpeed);
-  Serial.print("  IntakeSpeed: ");
-  Serial.print(speed);
-  Serial.print("   Intake_realspeed: ");
-  Serial.println(adjSpeed);
+//  Serial.print("  IntakeSpeed: ");
+//  Serial.print(speed);
+//  Serial.print("   Intake_realspeed: ");
+//  Serial.println(adjSpeed);
 }
