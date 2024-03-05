@@ -1,97 +1,143 @@
 
 // Rotary Encoder Module connections
-const int PinSW=3;   // Rotary Encoder Switch
-const int PinDT=4;    // DATA signal
-const int PinCLK=2;    // CLOCK signal
+const int rDT = 13;    // DATA signal
+const int rCLK = 3;    // CLOCK signal
+const int lDT = 12;    // DATA signal
+const int lCLK = 2;    // CLOCK signal
 
-// Variables to debounce Rotary Encoder
-long TimeOfLastDebounce = 0;
-int DelayofDebounce = 0.01;
 
 // Store previous Pins state
-int PreviousCLK;   
-int PreviousDATA;
+int rPreviousCLK;   
+int rPreviousDATA;
+int lPreviousCLK;   
+int lPreviousDATA;
 
-int displaycounter=0; // Store current counter value
+int rcounter = 0; // Store current counter value
+int lcounter = 0;
 
 void setup() {
-  // Put current pins state in variables
-  PreviousCLK=digitalRead(PinCLK);
-  PreviousDATA=digitalRead(PinDT);
+  attachInterrupt(digitalPinToInterrupt(rCLK), rEncMove, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(lCLK), lEncMove, CHANGE);
 
-  // Set the Switch pin to use Arduino PULLUP resistors
-  pinMode(PinSW, INPUT_PULLUP);
+  rPreviousCLK = digitalRead(rCLK);
+  rPreviousDATA = digitalRead(rDT);
+  lPreviousCLK = digitalRead(lCLK);
+  lPreviousDATA = digitalRead(lDT);
 
-  // Start and setup the LED MATRIX at startup
-  P.begin();
-  P.setTextAlignment(PA_RIGHT);
-  P.print(displaycounter);
-
+  Serial.begin(9600);
 }
+
+void rEncMove() {
+  check_rotary_R();
+  rPreviousCLK = digitalRead(rCLK);
+  rPreviousDATA = digitalRead(rDT);
+}
+
+void lEncMove() {
+  check_rotary_L();
+  lPreviousCLK = digitalRead(lCLK);
+  lPreviousDATA = digitalRead(lDT);
+}
+
 void loop() {
-  // If enough time has passed check the rotary encoder
-  if ((millis() - TimeOfLastDebounce) > DelayofDebounce) {
-    
-    check_rotary();  // Rotary Encoder check routine below
-    
-    PreviousCLK=digitalRead(PinCLK);
-    PreviousDATA=digitalRead(PinDT);
-    
-    TimeOfLastDebounce=millis();  // Set variable to current millis() timer
-  }
-  
-  // Check if Rotary Encoder switch was pressed
-  if (digitalRead(PinSW) == LOW) {
-    displaycounter=0;  // Reset counter to zero
-    P.print(displaycounter);
-  }
+
+  Serial.print("Left:  ");
+  Serial.print(lcounter);
+  Serial.print("  Right:  ");
+  Serial.println(rcounter);
 }
 
+// Check if Rotary Encoder was moved on thr right side
+void check_rotary_R() {
 
-// Check if Rotary Encoder was moved
-void check_rotary() {
-
- if ((PreviousCLK == 0) && (PreviousDATA == 1)) {
-    if ((digitalRead(PinCLK) == 1) && (digitalRead(PinDT) == 0)) {
-      displaycounter++;
-      P.print(displaycounter);
+ if ((rPreviousCLK == 0) && (rPreviousDATA == 1)) {
+    if ((digitalRead(rCLK) == 1) && (digitalRead(rDT) == 0)) {
+      rcounter++;
+      return;
     }
-    if ((digitalRead(PinCLK) == 1) && (digitalRead(PinDT) == 1)) {
-      displaycounter--;
-      P.print(displaycounter);
+    if ((digitalRead(rCLK) == 1) && (digitalRead(rDT) == 1)) {
+      rcounter--;
+      return;
     }
   }
 
-if ((PreviousCLK == 1) && (PreviousDATA == 0)) {
-    if ((digitalRead(PinCLK) == 0) && (digitalRead(PinDT) == 1)) {
-      displaycounter++;
-      P.print(displaycounter);
+if ((rPreviousCLK == 1) && (rPreviousDATA == 0)) {
+    if ((digitalRead(rCLK) == 0) && (digitalRead(rDT) == 1)) {
+      rcounter++;
+      return;
     }
-    if ((digitalRead(PinCLK) == 0) && (digitalRead(PinDT) == 0)) {
-      displaycounter--;
-      P.print(displaycounter);
+    if ((digitalRead(rCLK) == 0) && (digitalRead(rDT) == 0)) {
+      rcounter--;
+      return;
     }
   }
 
-if ((PreviousCLK == 1) && (PreviousDATA == 1)) {
-    if ((digitalRead(PinCLK) == 0) && (digitalRead(PinDT) == 1)) {
-      displaycounter++;
-      P.print(displaycounter);
+if ((rPreviousCLK == 1) && (rPreviousDATA == 1)) {
+    if ((digitalRead(rCLK) == 0) && (digitalRead(rDT) == 1)) {
+      rcounter++;
+      return;
     }
-    if ((digitalRead(PinCLK) == 0) && (digitalRead(PinDT) == 0)) {
-      displaycounter--;
-      P.print(displaycounter);
+    if ((digitalRead(rCLK) == 0) && (digitalRead(rDT) == 0)) {
+      rcounter--;
+      return;
     }
   }  
 
-if ((PreviousCLK == 0) && (PreviousDATA == 0)) {
-    if ((digitalRead(PinCLK) == 1) && (digitalRead(PinDT) == 0)) {
-      displaycounter++;
-      P.print(displaycounter);
+if ((rPreviousCLK == 0) && (rPreviousDATA == 0)) {
+    if ((digitalRead(rCLK) == 1) && (digitalRead(rDT) == 0)) {
+      rcounter++;
+      return;
     }
-    if ((digitalRead(PinCLK) == 1) && (digitalRead(PinDT) == 1)) {
-      displaycounter--;
-          P.print(displaycounter);
+    if ((digitalRead(rCLK) == 1) && (digitalRead(rDT) == 1)) {
+      rcounter--;
+      return;
     }
-  }            
+  }       
+}
+
+void check_rotary_L() {
+
+ if ((lPreviousCLK == 0) && (lPreviousDATA == 1)) {
+    if ((digitalRead(lCLK) == 1) && (digitalRead(lDT) == 0)) {
+      lcounter++;
+      return;
+    }
+    if ((digitalRead(lCLK) == 1) && (digitalRead(lDT) == 1)) {
+      lcounter--;
+      return;
+    }
+  }
+
+if ((lPreviousCLK == 1) && (lPreviousDATA == 0)) {
+    if ((digitalRead(lCLK) == 0) && (digitalRead(lDT) == 1)) {
+      lcounter++;
+      return;
+    }
+    if ((digitalRead(lCLK) == 0) && (digitalRead(lDT) == 0)) {
+      lcounter--;
+      return;
+    }
+  }
+
+if ((lPreviousCLK == 1) && (lPreviousDATA == 1)) {
+    if ((digitalRead(lCLK) == 0) && (digitalRead(lDT) == 1)) {
+      lcounter++;
+      return;
+    }
+    if ((digitalRead(lCLK) == 0) && (digitalRead(lDT) == 0)) {
+      lcounter--;
+      return;
+    }
+  }  
+
+if ((lPreviousCLK == 0) && (lPreviousDATA == 0)) {
+    if ((digitalRead(lCLK) == 1) && (digitalRead(lDT) == 0)) {
+      lcounter++;
+      return;
+    }
+    if ((digitalRead(lCLK) == 1) && (digitalRead(lDT) == 1)) {
+      lcounter--;
+      return;
+    }
+  }       
  }
