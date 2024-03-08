@@ -31,20 +31,20 @@ int LeftMotorSpeed = 0;
 
 // Algorithm constants
 // Speed
-const int maxSpeed = 30; // (0 - 255) Use this to holistically adjust speed of robot, all other mappings are based off this
+const int maxSpeed = 60; // (0 - 255) Use this to holistically adjust speed of robot, all other mappings are based off this
 //
 const int yMax = maxSpeed*1.2; // Highest number y gets mapped to (slightly > overall cap speed)
-const int ymin = 0.1*maxSpeed; // lowest number y gets mapped to (some benefit to having a forward bias)
-const int xErrMax = yMax*0.5; // Maximum absolute x error
-const int quadraticXOvershootFactor = 1.3; // The quadratic pushes above the xmax on the edges
-const int cubicXOvershootFactor = 1.3; // Same for cubic
-const int chooseXMap = 2; // x mapping choice: Pick 1,2,3,4 to choose between linear qudratic and cubic, and 4 for custom arctan function
+const int ymin = 0.3*maxSpeed; // lowest number y gets mapped to (some benefit to having a forward bias)
+const int xErrMax = yMax*0.6; // Maximum absolute x error
+const double quadraticXOvershootFactor = 1; // The quadratic pushes above the xmax on the edges
+const double cubicXOvershootFactor = 1.3; // Same for cubic
+const int chooseXMap = 1; // x mapping choice: Pick 1,2,3,4 to choose between linear qudratic and cubic, and 4 for custom arctan function
 const int chooseYMap = 1; // y mapping choice: Pick 1 for linear, 2 for square root
-const int noBallDelay = 750; // How long robot continues in current direction after loss of ball
-const int YpctForXSlow = 0.65; // This determines the percentage of y error under which x error is reduced (reduces x sensitivity when ball very close)
-const int pctXReduce = 0.5; // This determines the percent x is reduced to when the ball is very close
-const int xVelCorFactor = 0.8; // How aggressively does the corrected position lead real current position (1 being exactly as much as previous)
-const int yVelCorFactor = 0.8; // ^
+const int noBallDelay = 0; // How long robot continues in current direction after loss of ball
+const double YpctForXSlow = 0.2; // This determines the percentage of y error under which x error is reduced (reduces x sensitivity when ball very close)
+const double pctXReduce = 0.5; // This determines the percent x is reduced to when the ball is very close
+const double xVelCorFactor = 0.8; // How aggressively does the corrected position lead real current position (1 being exactly as much as previous)
+const double yVelCorFactor = 0.8; // ^
 
 void setup() {
   // initialize output pins
@@ -74,10 +74,12 @@ void loop() {
     /// GET PIXY
     int i;
     pixy.ccc.getBlocks();
-   
     if (!pixy.ccc.numBlocks)
     {
       NoBalls(); // No Balls detected: continue in previous direction for some time before stopping
+    } else{
+      x_pos_ooi = pixy.ccc.blocks[0].m_x;
+      y_pos_ooi = pixy.ccc.blocks[0].m_y;
     }
 
     /// VELOCITY CORRECTION
@@ -107,6 +109,10 @@ void loop() {
     LMotor(conL, LeftMotorSpeed*1.05);
 
     /// PRINT Data
+//    Serial.print("xpos: ");
+//    Serial.print(x_pos_ooi);
+//    Serial.print("ypos: ");
+//    Serial.print(y_pos_ooi);
     Serial.print("X: ");
     Serial.print(x_error);
     Serial.print("  Y: ");
@@ -155,6 +161,9 @@ void MapX() {
       x_error = 0;
     }
   } else {   // Otherwise Linear
+    if(abs(x_error) < 4){
+      x_error = 0;
+    }
     x_error = x_error;
   }
 }
