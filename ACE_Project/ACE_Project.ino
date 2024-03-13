@@ -35,7 +35,7 @@ const int maxSpeed = 60; // (0 - 255) Use this to holistically adjust speed of r
 //
 const int yMax = maxSpeed*1.2; // Highest number y gets mapped to (slightly > overall cap speed)
 const int ymin = 0.3*maxSpeed; // lowest number y gets mapped to (some benefit to having a forward bias)
-const int xErrMax = yMax*0.6; // Maximum absolute x error
+const int xErrMax = maxSpeed*0.6; // Maximum absolute x error [factor is essentially side to side K value]
 const double quadraticXOvershootFactor = 1; // The quadratic pushes above the xmax on the edges
 const double cubicXOvershootFactor = 1.3; // Same for cubic
 const int chooseXMap = 1; // x mapping choice: Pick 1,2,3,4 to choose between linear qudratic and cubic, and 4 for custom arctan function
