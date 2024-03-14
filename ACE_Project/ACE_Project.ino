@@ -18,9 +18,9 @@ int x_pos_ooi = 158; //x position of object of interest
 int y_pos_ooi = 316; //y position of object of interest
 
 // Geometric Constants
-const double closestY = 0.3; // [m] Closest physical distance the ball is from the robot and still in camera
-const double farthestY = 3; // [m] Farthest distance ball is in camera view
-const double widestX = 1.5; // [m] When ball is at farthest y, the widest x can be from center
+const double closestY = 0.2; // [m] Closest physical distance the ball is from the robot and still in camera
+const double farthestY = 1; // [m] Farthest distance ball is in camera view
+const double widestX = 0.8; // [m] When ball is at farthest y, the widest x can be from center
 
 // Positional variables
 double x_pos = 0;
@@ -85,7 +85,7 @@ void loop() {
     /// ON_BOARD BALL TRACKING CONTROL MAPPING
 
     // Map ball pos to real position on ground
-    y_pos = map(y_pos_ooi, 0, 316, farthestY, closestY);
+    y_pos = map(y_pos_ooi, 100, 300, farthestY, closestY);
     x_pos = map(x_pos_ooi, 0, 316, -y_pos*widestX/farthestY, y_pos*widestX/farthestY);
 
     // set robot to move forward towards the ball
@@ -149,8 +149,8 @@ double PID() {
   integral += error*dt;
   double derivative = (error - prev_error) / dt;
   prev_error = error;
-  double a_out = Kp*proportional + Ki*integral + Kd*derivative;
-  return a_out;
+  double out = Kp*proportional + Ki*integral + Kd*derivative;
+  return out;
 }
 
 // Scenario: No balls in sight
@@ -166,14 +166,6 @@ void NoBalls() {
     pixy.ccc.getBlocks();
     RMotor(conR, 0);
     LMotor(conL, 0);
-    
-    // PRINT Data
-    Serial.print("Angle ofst: ");
-    Serial.print(error);
-    Serial.print("  R: ");
-    Serial.print(RightMotorSpeed);
-    Serial.print("   L: ");
-    Serial.println(LeftMotorSpeed);
   }
 }
 
