@@ -7,44 +7,44 @@
 //Set pixy as main object
 Pixy2 pixy;
 
-// pixy variables
-int x_pos_ooi = 158; //x position of object of interest
-int y_pos_ooi = 316; //y position of object of interest
-int last_x_pos_ooi = 158; //previous position used by
-int last_y_pos_ooi = 316;
-int xVelCor = 0;
-int yVelCor = 0;
-int lastPosTime;
-
-int x_error = 0;
-int y_error = 0;
-
 // constants
 const int conR = 10; // pin 10 on timer 1
 const int conL = 9; // pin 9 on timer 1
 const int conI = 3; // pins 11 and 3 on timer 2 (pin 11 seems to not work though)
 const int frequency = 150; // do not change
 
+// pixy variables
+int x_pos_ooi = 158; //x position of object of interest
+int y_pos_ooi = 316; //y position of object of interest
+
+// Geometric Constants
+const double closestY = 0.3; // [m] Closest physical distance the ball is from the robot and still in camera
+const double farthestY = 3; // [m] Farthest distance ball is in camera view
+const double widestX = 1.5; // [m] When ball is at farthest y, the widest x can be from center
+
+// Positional variables
+double x_pos = 0;
+double y_pos = 0;
+
 // control variables
+double error = 0; // error of offset angle 
+double prev_error = 0; // previous out for use with derivative controller (with compass this will get better)
+double a_out = 0;
+double integral = 0;
+unsigned long last_time = 0;
+int baseSpeed = 0;
 int RightMotorSpeed = 0;
 int LeftMotorSpeed = 0;
 
 // Algorithm constants
 // Speed
-const int maxSpeed = 60; // (0 - 255) Use this to holistically adjust speed of robot, all other mappings are based off this
+const int maxSpeed = 60; // (0 - 255) Use this to holistically adjust speed of robot, everything is based on this
 //
-const int yMax = maxSpeed*1.2; // Highest number y gets mapped to (slightly > overall cap speed)
-const int ymin = 0.3*maxSpeed; // lowest number y gets mapped to (some benefit to having a forward bias)
-const int xErrMax = maxSpeed*0.6; // Maximum absolute x error [factor is essentially side to side K value]
-const double quadraticXOvershootFactor = 1; // The quadratic pushes above the xmax on the edges
-const double cubicXOvershootFactor = 1.3; // Same for cubic
-const int chooseXMap = 1; // x mapping choice: Pick 1,2,3,4 to choose between linear qudratic and cubic, and 4 for custom arctan function
-const int chooseYMap = 1; // y mapping choice: Pick 1 for linear, 2 for square root
-const int noBallDelay = 0; // How long robot continues in current direction after loss of ball
-const double YpctForXSlow = 0.2; // This determines the percentage of y error under which x error is reduced (reduces x sensitivity when ball very close)
-const double pctXReduce = 0.5; // This determines the percent x is reduced to when the ball is very close
-const double xVelCorFactor = 0.8; // How aggressively does the corrected position lead real current position (1 being exactly as much as previous)
-const double yVelCorFactor = 0.8; // ^
+const double Kp = 1*(0.5*maxSpeed); // Gain of PID system
+const double Ki = 0.1*maxSpeed; // integral multiplier
+const double Kd = 0.1*maxSpeed; // derivative multiplier
+const double dt = 10; // time between error updates
+const int noBallDelay = 200; // How long robot continues in current direction after loss of ball
 
 void setup() {
   // initialize output pins
@@ -67,7 +67,7 @@ void setup() {
 }
 
 void loop() {
-
+    
     // Run intake constantly
     IMotor(conI, -40);
 
@@ -78,45 +78,46 @@ void loop() {
     {
       NoBalls(); // No Balls detected: continue in previous direction for some time before stopping
     } else{
-      x_pos_ooi = pixy.ccc.blocks[0].m_x;
+      x_pos_ooi = pixy.ccc.blocks[0].m_x; // will focus on first seen object
       y_pos_ooi = pixy.ccc.blocks[0].m_y;
     }
 
-    /// VELOCITY CORRECTION
-
-    DynPosCorrection();
-
     /// ON_BOARD BALL TRACKING CONTROL MAPPING
 
-    // Map ball pos to motor cntrl vars
-    x_error = map(x_pos_ooi + xVelCor, 0, 316, -xErrMax, xErrMax);
-    y_error = map(y_pos_ooi + yVelCor, 0, 316, yMax, ymin);
-    MapX();
-    if(y_error < YpctForXSlow*yMax) {
-      x_error = x_error*pctXReduce;
+    // Map ball pos to real position on ground
+    y_pos = map(y_pos_ooi, 0, 316, farthestY, closestY);
+    x_pos = map(x_pos_ooi, 0, 316, -y_pos*widestX/farthestY, y_pos*widestX/farthestY);
+
+    // set robot to move forward towards the ball
+    baseSpeed = y_pos/farthestY*maxSpeed;
+    
+    // Find Angle of offset using x and y; angle of ball with respect to robot (we want this to be 0)
+    error = atan(x_pos/y_pos); // converted error from sensor input into same units as desird value, i.e. radians/angle
+
+    unsigned long now = millis();
+    if (millis() > last_time + dt) {
+      a_out = PID();
+      last_time = millis();
     }
-    MapY();
-
+ 
     // Set motor speeds
-    RightMotorSpeed = y_error - x_error;
-    LeftMotorSpeed = y_error + x_error;
+    RightMotorSpeed = baseSpeed - a_out;
+    LeftMotorSpeed = baseSpeed + a_out;
 
-    // Limit motors to maxSpeed
-    LimitMotors(maxSpeed);
+    // Limit motors
+    LimitMotors(maxSpeed*1.5);
 
     // Run Motors
-    RMotor(conR, RightMotorSpeed*0.76); ////////NOTE adjusted right speed due to inequal resistance
-    LMotor(conL, LeftMotorSpeed*1.05);
+    RMotor(conR, RightMotorSpeed); ////////NOTE adjusted right speed due to inequal resistance
+    LMotor(conL, LeftMotorSpeed);
 
     /// PRINT Data
 //    Serial.print("xpos: ");
 //    Serial.print(x_pos_ooi);
 //    Serial.print("ypos: ");
 //    Serial.print(y_pos_ooi);
-    Serial.print("X: ");
-    Serial.print(x_error);
-    Serial.print("  Y: ");
-    Serial.print(y_error);
+    Serial.print("Angle ofst: ");
+    Serial.print(error);
     Serial.print("  R: ");
     Serial.print(RightMotorSpeed);
     Serial.print("   L: ");
@@ -142,39 +143,14 @@ void set_pwm_frequency(int frequency) {
   Serial.print(set_timer2_success);
 }
 
-// x mapping function
-void MapX() {
-  if(chooseXMap == 2) {  // Quadratic
-    if(x_error >= 0) {
-      x_error = quadraticXOvershootFactor*pow(x_error, 2) / (xErrMax^2);
-    } else {
-      x_error = -quadraticXOvershootFactor*pow(abs(x_error), 2) / (xErrMax^2);;
-    }
-  } else if(chooseXMap == 3) { // Cubic
-    x_error = cubicXOvershootFactor*pow(x_error, 3) / (xErrMax^3);
-  } else if(chooseXMap == 4) { // arctan based; near linear with ramp up in the centre
-    if(x_error > 1) {
-      x_error = 2*(maxSpeed/5)*(atan(x_error/(1.3*(maxSpeed/5)) - 2) + 1.1);
-    } else if(x_error < -1) {
-      x_error = 2*(maxSpeed/5)*(atan(-x_error/(1.3*(maxSpeed/5)) - 2) + 1.1);
-    } else {
-      x_error = 0;
-    }
-  } else {   // Otherwise Linear
-    if(abs(x_error) < 4){
-      x_error = 0;
-    }
-    x_error = x_error;
-  }
-}
-
-// y mapping function
-void MapY() {
-  if(chooseYMap == 2) { // Square root
-    y_error = pow(y_error, 0.5)*pow(yMax, 0.5);
-  } else { // Linear
-    y_error = y_error;
-  }
+// PID controller
+double PID() {
+  double proportional = error;
+  integral += error*dt;
+  double derivative = (error - prev_error) / dt;
+  prev_error = error;
+  double a_out = Kp*proportional + Ki*integral + Kd*derivative;
+  return a_out;
 }
 
 // Scenario: No balls in sight
@@ -185,43 +161,19 @@ void NoBalls() {
     LMotor(conL, LeftMotorSpeed);
   }
   // Stop after timeout
-  RightMotorSpeed = 0;
-  LeftMotorSpeed = 0;
-  x_error = 0;
-  y_error = 0;
   // Hold motors until ball found again
   while(!pixy.ccc.numBlocks){
     pixy.ccc.getBlocks();
-    RMotor(conR, RightMotorSpeed);
-    LMotor(conL, LeftMotorSpeed);
+    RMotor(conR, 0);
+    LMotor(conL, 0);
     
     // PRINT Data
-    Serial.print("X: ");
-    Serial.print(x_error);
-    Serial.print("  Y: ");
-    Serial.print(y_error);
+    Serial.print("Angle ofst: ");
+    Serial.print(error);
     Serial.print("  R: ");
     Serial.print(RightMotorSpeed);
     Serial.print("   L: ");
     Serial.println(LeftMotorSpeed);
-  }
-}
-
-void DynPosCorrection() {
-  if(x_pos_ooi > last_x_pos_ooi + 90 || y_pos_ooi > last_y_pos_ooi + 90) { // If the new position is vastly far from old position, something odd has happened like ball lost and found again so reset
-    last_x_pos_ooi = x_pos_ooi;
-    last_y_pos_ooi = y_pos_ooi;
-  }
-
-  if(millis() > lastPosTime + 130) {
-    
-    xVelCor = xVelCorFactor*(x_pos_ooi - last_x_pos_ooi);
-    yVelCor = yVelCorFactor*(y_pos_ooi - last_y_pos_ooi);
-    
-    // Set new "last" variables
-    last_x_pos_ooi = x_pos_ooi;
-    last_y_pos_ooi = y_pos_ooi;
-    lastPosTime = millis();
   }
 }
 
