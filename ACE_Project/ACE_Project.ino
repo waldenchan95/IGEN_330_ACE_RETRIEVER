@@ -18,32 +18,32 @@ int x_pos_ooi = 158; //x position of object of interest
 int y_pos_ooi = 316; //y position of object of interest
 
 // Geometric Constants
-const double closestY = 0.2; // [m] Closest physical distance the ball is from the robot and still in camera
-const double farthestY = 1; // [m] Farthest distance ball is in camera view
-const double widestX = 0.8; // [m] When ball is at farthest y, the widest x can be from center
+const long closestY = 20; // [cm] Closest physical distance the ball is from the robot and still in camera
+const long farthestY = 162; // [cm] Farthest distance ball is in camera view
+const long widestX = 126; // [cm] When ball is at farthest y, the widest x can be from center
 
 // Positional variables
 double x_pos = 0;
 double y_pos = 0;
 
 // control variables
-double error = 0; // error of offset angle 
+double error; // error of offset angle 
 double prev_error = 0; // previous out for use with derivative controller (with compass this will get better)
 double a_out = 0;
 double integral = 0;
 unsigned long last_time = 0;
-int baseSpeed = 0;
+double baseSpeed = 0;
 int RightMotorSpeed = 0;
 int LeftMotorSpeed = 0;
 
 // Algorithm constants
 // Speed
-const int maxSpeed = 60; // (0 - 255) Use this to holistically adjust speed of robot, everything is based on this
+const double maxSpeed = 150; // (0 - 255) Use this to holistically adjust speed of robot, everything is based on this
 //
-const double Kp = 0.8*(0.5*maxSpeed); // Gain of PID system
-const double Ki = 0.1*maxSpeed; // integral multiplier
-const double Kd = 0.1*maxSpeed; // derivative multiplier
-const double dt = 10; // time between error updates
+const double Kp = 0.5*(0.5*maxSpeed); // Gain of PID system
+const double Ki = 0.0006*maxSpeed; // integral multiplier
+const double Kd = 4*maxSpeed; // derivative multiplier
+const double dt = 5; // time between error updates
 const int noBallDelay = 200; // How long robot continues in current direction after loss of ball
 
 void setup() {
@@ -85,11 +85,16 @@ void loop() {
     /// ON_BOARD BALL TRACKING CONTROL MAPPING
 
     // Map ball pos to real position on ground
-    y_pos = map(y_pos_ooi, 100, 300, farthestY, closestY);
-    x_pos = map(x_pos_ooi, 0, 316, -y_pos*widestX/farthestY, y_pos*widestX/farthestY);
+    y_pos = 289387*pow(y_pos_ooi, -1.796);
+    double xmax = y_pos*widestX/farthestY;
+    x_pos = map(x_pos_ooi, 0, 316, -xmax, xmax);
 
+    Serial.print("ypos:  ");
+    Serial.print(y_pos);
+    Serial.print("   xpos:  ");
+    Serial.print(x_pos);
     // set robot to move forward towards the ball
-    baseSpeed = y_pos/farthestY*maxSpeed;
+    baseSpeed = 30;//y_pos/farthestY*maxSpeed;
     
     // Find Angle of offset using x and y; angle of ball with respect to robot (we want this to be 0)
     error = atan(x_pos/y_pos); // converted error from sensor input into same units as desird value, i.e. radians/angle
@@ -105,7 +110,7 @@ void loop() {
     LeftMotorSpeed = baseSpeed + a_out;
 
     // Limit motors
-    LimitMotors(maxSpeed*1.5);
+    //LimitMotors(maxSpeed*1.5);
 
     // Run Motors
     RMotor(conR, RightMotorSpeed); ////////NOTE adjusted right speed due to inequal resistance
@@ -116,7 +121,7 @@ void loop() {
 //    Serial.print(x_pos_ooi);
 //    Serial.print("ypos: ");
 //    Serial.print(y_pos_ooi);
-    Serial.print("Angle ofst: ");
+    Serial.print("     Angle ofst: ");
     Serial.print(error);
     Serial.print("  R: ");
     Serial.print(RightMotorSpeed);
@@ -155,6 +160,7 @@ double PID() {
 
 // Scenario: No balls in sight
 void NoBalls() {
+  prev_error = 0;
   unsigned long noBallInitTime = millis();
   while(!pixy.ccc.numBlocks && millis() < noBallInitTime + noBallDelay) {
     RMotor(conR, RightMotorSpeed);
