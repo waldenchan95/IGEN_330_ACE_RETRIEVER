@@ -40,7 +40,7 @@ int LeftMotorSpeed = 0;
 // Speed
 const double maxSpeed = 150; // (0 - 255) Use this to holistically adjust speed of robot, everything is based on this
 //
-const double Kp = 0.5*(0.5*maxSpeed); // Gain of PID system
+const double Kp = 0.5*(0.5*maxSpeed); // Gain of P
 const double Ki = 0.0006*maxSpeed; // integral multiplier
 const double Kd = 4*maxSpeed; // derivative multiplier
 const double dt = 5; // time between error updates
