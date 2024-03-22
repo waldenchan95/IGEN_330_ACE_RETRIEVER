@@ -24,7 +24,6 @@ int lcounter = 0;
 double x = 0; //(m)
 double y = 0; //(m)
 double a = 0; //(rad)
-double lasta = 0; //store previos angle each sample to take average
 
 //MAGNETOMETER
 // Hard-iron calibration settings
