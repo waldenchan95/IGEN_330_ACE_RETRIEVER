@@ -61,7 +61,7 @@ void setup() {
 
   //Initialize PWM
   InitTimersSafe();
-  set_pwm_frequency(conL, frequency);
+  set_pwm_frequency(frequency);
   
   // intialize pixy library
   pixy.init();
