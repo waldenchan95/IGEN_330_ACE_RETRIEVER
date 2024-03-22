@@ -1,19 +1,48 @@
+#include <Wire.h>
+#include <Adafruit_LIS3MDL.h>
+#include <Adafruit_Sensor.h>
+#include <math.h>
 
+#define CLKS_PER_SAMPLE 4 // pure counts of encoder
+#define DIST_PER_CLK 0.005984734 // 3inch wheel, 40 clicks per rotation (m)
+
+//ENCODER
 // Rotary Encoder Module connections
-const int rDT = 13;    // DATA signal
-const int rCLK = 3;    // CLOCK signal
-const int lDT = 12;    // DATA signal
-const int lCLK = 2;    // CLOCK signal
-
-
+const int rDT = 7;    // DATA signal
+const int rCLK = 19;    // CLOCK signal
+const int lDT = 6;    // DATA signal
+const int lCLK = 18;    // CLOCK signal
 // Store previous Pins state
 int rPreviousCLK;   
 int rPreviousDATA;
 int lPreviousCLK;   
 int lPreviousDATA;
-
-int rcounter = 0; // Store current counter value
+// Store current counter value
+int rcounter = 0;
 int lcounter = 0;
+// Position variables
+double x = 0; //(m)
+double y = 0; //(m)
+double a = 0; //(rad)
+double lasta = 0; //store previos angle each sample to take average
+
+//MAGNETOMETER
+// Hard-iron calibration settings
+const float hard_iron[3] = {
+  -12.04,  -15.64,  13.31
+};
+
+// Soft-iron calibration settings
+const float soft_iron[3][3] = {
+  {  1.0,  0.0, 0.0  },
+  {  0.0,  1.0, 0.0  },
+  {  0.0,  0.0, 1.0  }
+};
+
+static float heading = 0;
+
+//Create instance of magnetometer
+Adafruit_LIS3MDL lis3mdl;
 
 void setup() {
   attachInterrupt(digitalPinToInterrupt(rCLK), rEncMove, CHANGE);
@@ -24,7 +53,10 @@ void setup() {
   lPreviousCLK = digitalRead(lCLK);
   lPreviousDATA = digitalRead(lDT);
 
-  Serial.begin(9600);
+  Serial.begin(115200);
+  if (!lis3mdl.begin_I2C()) {
+    Serial.println("ERROR: Could not find magnetometer");
+  }
 }
 
 void rEncMove() {
@@ -41,11 +73,59 @@ void lEncMove() {
 
 void loop() {
 
-  Serial.print("Left:  ");
-  Serial.print(lcounter);
-  Serial.print("  Right:  ");
-  Serial.println(rcounter);
+//COMPASS
+  static float hi_cal[3];
+  // Get new sensor event with readings in uTesla
+  sensors_event_t event;
+  lis3mdl.getEvent(&event);
+  // Put raw magnetometer readings into an array
+  float mag_data[] = {event.magnetic.x,
+                      event.magnetic.y,
+                      event.magnetic.z};
+  // Apply hard-iron offsets
+  for (uint8_t i = 0; i < 3; i++) {
+    hi_cal[i] = mag_data[i] - hard_iron[i];
+  }
+  // Apply soft-iron scaling
+  for (uint8_t i = 0; i < 3; i++) {
+    mag_data[i] = (soft_iron[i][0] * hi_cal[0]) +
+                  (soft_iron[i][1] * hi_cal[1]) +
+                  (soft_iron[i][2] * hi_cal[2]);
+  }
+  // Calculate angle for heading, assuming board is parallel to
+  // the ground and  Y points toward heading.
+  heading = -1.0 * (atan2(mag_data[0], mag_data[1])*180)/PI;
+  a = heading/180*PI;
+  // Convert heading to 0..360 degrees
+  if (a < 0) {
+    a += 2*PI;
+  }
+  
+  if (abs(rcounter) > CLKS_PER_SAMPLE || abs(lcounter) > CLKS_PER_SAMPLE) {
+    double rdistance = rcounter * DIST_PER_CLK;
+    double ldistance = lcounter * DIST_PER_CLK;
+    double dd = (rdistance + ldistance) / 2.0;
+    double dx = cos(a) * dd;
+    double dy = sin(a) * dd;
+    x = x + dx;
+    y = y + dy;
+    
+    rcounter = 0;
+    lcounter = 0;
+    lasta = a;
+  }
+  
+//PRINT
+  Serial.print("X:  ");
+  Serial.print(x, 4);
+  Serial.print("  Y:  ");
+  Serial.print(y, 4);
+  Serial.print(" A: ");
+  Serial.println(a, 4);
 }
+
+
+//FUNCTIONS
 
 // Check if Rotary Encoder was moved on thr right side
 void check_rotary_R() {
@@ -99,44 +179,44 @@ void check_rotary_L() {
 
  if ((lPreviousCLK == 0) && (lPreviousDATA == 1)) {
     if ((digitalRead(lCLK) == 1) && (digitalRead(lDT) == 0)) {
-      lcounter++;
+      lcounter--;
       return;
     }
     if ((digitalRead(lCLK) == 1) && (digitalRead(lDT) == 1)) {
-      lcounter--;
+      lcounter++;
       return;
     }
   }
 
 if ((lPreviousCLK == 1) && (lPreviousDATA == 0)) {
     if ((digitalRead(lCLK) == 0) && (digitalRead(lDT) == 1)) {
-      lcounter++;
+      lcounter--;
       return;
     }
     if ((digitalRead(lCLK) == 0) && (digitalRead(lDT) == 0)) {
-      lcounter--;
+      lcounter++;
       return;
     }
   }
 
 if ((lPreviousCLK == 1) && (lPreviousDATA == 1)) {
     if ((digitalRead(lCLK) == 0) && (digitalRead(lDT) == 1)) {
-      lcounter++;
+      lcounter--;
       return;
     }
     if ((digitalRead(lCLK) == 0) && (digitalRead(lDT) == 0)) {
-      lcounter--;
+      lcounter++;
       return;
     }
   }  
 
 if ((lPreviousCLK == 0) && (lPreviousDATA == 0)) {
     if ((digitalRead(lCLK) == 1) && (digitalRead(lDT) == 0)) {
-      lcounter++;
+      lcounter--;
       return;
     }
     if ((digitalRead(lCLK) == 1) && (digitalRead(lDT) == 1)) {
-      lcounter--;
+      lcounter++;
       return;
     }
   }       
