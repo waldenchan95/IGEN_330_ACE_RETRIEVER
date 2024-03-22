@@ -1,61 +1,51 @@
-#include <math.h>
+// Odometry Header File
+// Include in main file
+// User will have constantly updated x, y, and a (angle) position data
+
 #include <Wire.h>
 #include <Adafruit_LIS3MDL.h>
 #include <Adafruit_Sensor.h>
+//Requires math.h
 
 #define CLKS_PER_SAMPLE 4 // pure counts of encoder
 #define DIST_PER_CLK 0.005984734 // 3inch wheel, 40 clicks per rotation (m)
 
 //ENCODER
 // Rotary Encoder Module connections
-const int rDT = 7;    // DATA signal
-const int rCLK = 19;    // CLOCK signal
-const int lDT = 6;    // DATA signal
-const int lCLK = 18;    // CLOCK signal
+// const int rDT = 7;    // DATA signal
+// const int rCLK = 19;    // CLOCK signal
+// const int lDT = 6;    // DATA signal
+// const int lCLK = 18;    // CLOCK signal
 // Store previous Pins state
-int rPreviousCLK;   
-int rPreviousDATA;
-int lPreviousCLK;   
-int lPreviousDATA;
+extern int rPreviousCLK;   
+extern int rPreviousDATA;
+extern int lPreviousCLK;   
+extern int lPreviousDATA;
 // Store current counter value
-int rcounter = 0;
-int lcounter = 0;
+extern int rcounter = 0;
+extern int lcounter = 0;
 // Position variables
-double x = 0; //(m)
-double y = 0; //(m)
-double a = 0; //(rad)
+extern double x = 0; //(m)
+extern double y = 0; //(m)
+extern double a = 0; //(rad)
 
 //MAGNETOMETER
 // Hard-iron calibration settings
-const float hard_iron[3] = {
+extern const float hard_iron[3] = {
   -12.04,  -15.64,  13.31
 };
+
 // Soft-iron calibration settings
-const float soft_iron[3][3] = {
+extern const float soft_iron[3][3] = {
   {  1.0,  0.0, 0.0  },
   {  0.0,  1.0, 0.0  },
   {  0.0,  0.0, 1.0  }
 };
-static float heading = 0;
 
-//Create instance of magnetometer
-Adafruit_LIS3MDL lis3mdl;
+extern static float heading = 0;
 
-void setup() {
-  Serial.begin(115200);
-  StartOdometry();
-}
-
-void loop() {
-  Odometry();
-//PRINT
-  Serial.print("X:  ");
-  Serial.print(x, 4);
-  Serial.print("  Y:  ");
-  Serial.print(y, 4);
-  Serial.print(" A: ");
-  Serial.println(a, 4);
-}
+// //Create instance of magnetometer
+// Adafruit_LIS3MDL lis3mdl;
 
 void StartOdometry() {
   attachInterrupt(digitalPinToInterrupt(rCLK), rEncMove, CHANGE);

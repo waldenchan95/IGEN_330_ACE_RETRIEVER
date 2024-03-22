@@ -12,10 +12,10 @@
 
 //ENCODER
 // Rotary Encoder Module connections
-// const int rDT = 7;    // DATA signal
-// const int rCLK = 19;    // CLOCK signal
-// const int lDT = 6;    // DATA signal
-// const int lCLK = 18;    // CLOCK signal
+const int rDT = 7;    // DATA signal
+const int rCLK = 19;    // CLOCK signal
+const int lDT = 6;    // DATA signal
+const int lCLK = 18;    // CLOCK signal
 // Store previous Pins state
 extern int rPreviousCLK;   
 extern int rPreviousDATA;
@@ -44,8 +44,8 @@ extern const float soft_iron[3][3] = {
 
 extern static float heading = 0;
 
-// //Create instance of magnetometer
-// Adafruit_LIS3MDL lis3mdl;
+//Create instance of magnetometer
+Adafruit_LIS3MDL lis3mdl;
 
 void StartOdometry() {
   attachInterrupt(digitalPinToInterrupt(rCLK), rEncMove, CHANGE);
