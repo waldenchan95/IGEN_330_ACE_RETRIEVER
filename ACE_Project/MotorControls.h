@@ -3,12 +3,6 @@
 #define PWM_LOW 95
 #define PWM_HIGH 20
 
-void set_pwm_frequency(int conL, int frequency) {
-
-  bool set_con_L_in = SetPinFrequencySafe(conL, frequency);
-  Serial.print("  Setting conL Frequency: ");
-  Serial.print(set_con_L_in);
-}
 
 // Motor Functions:
 // Takes -255 to 255 inputs and maps them to correct PWM for the robots motors

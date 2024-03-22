@@ -54,6 +54,7 @@ static float heading = 0;
 
 // TRACKING VARIABLES
 // pixy variables
+bool ball;
 int x_pos_ooi = 158; //x position of object of interest
 int y_pos_ooi = 316; //y position of object of interest
 // Ball in Camera Positional variables
@@ -82,7 +83,6 @@ const double Kp = 0.5*(0.5*maxSpeed); // Gain of P
 const double Ki = 0.0006*maxSpeed; // integral multiplier
 const double Kd = 4*maxSpeed; // derivative multiplier
 const double dt = 5; // time between error updates
-const int noBallDelay = 200; // How long robot continues in current direction after loss of ball
 
 //Create instance of magnetometer
 Adafruit_LIS3MDL lis3mdl;
@@ -113,17 +113,14 @@ void loop() {
 
     // Execute Odometry
     Odometry();
-    
-    // Run intake constantly
-    IMotor(conI, -40);
 
     /// GET PIXY
-    int i;
     pixy.ccc.getBlocks();
     if (!pixy.ccc.numBlocks)
     {
-      NoBalls(); // No Balls detected: continue in previous direction for some time before stopping
+      ball = 0;
     } else{
+      ball = 1;
       x_pos_ooi = pixy.ccc.blocks[0].m_x; // will focus on first seen object
       y_pos_ooi = pixy.ccc.blocks[0].m_y;
     }
@@ -135,9 +132,9 @@ void loop() {
     double xmax = y_pos*widestX/farthestY;
     x_pos = map(x_pos_ooi, 0, 316, -xmax, xmax);
 
-    Serial.print("ypos:  ");
+    Serial.print("yballpos:  ");
     Serial.print(y_pos);
-    Serial.print("   xpos:  ");
+    Serial.print("   xballpos:  ");
     Serial.print(x_pos);
     // set robot to move forward towards the ball
     baseSpeed = 30;//y_pos/farthestY*maxSpeed;
@@ -155,21 +152,34 @@ void loop() {
     RightMotorSpeed = baseSpeed - a_out;
     LeftMotorSpeed = baseSpeed + a_out;
 
-    // Run Motors
-    RMotor(conR, RightMotorSpeed); ////////NOTE adjusted right speed due to inequal resistance
-    LMotor(conL, LeftMotorSpeed);
+    if (ball == 1) {
+      // Run Motors
+      RMotor(conR, RightMotorSpeed);
+      LMotor(conL, LeftMotorSpeed);
+      IMotor(conI, -40);
+    } else {
+      prev_error = 0;
+      RMotor(conR, 0);
+      LMotor(conL, 0);
+    }
 
     /// PRINT Data
 //    Serial.print("xpos: ");
 //    Serial.print(x_pos_ooi);
 //    Serial.print("ypos: ");
 //    Serial.print(y_pos_ooi);
-    Serial.print("     Angle ofst: ");
+    Serial.print("     Angle ofst from target: ");
     Serial.print(error);
     Serial.print("  R: ");
     Serial.print(RightMotorSpeed);
     Serial.print("   L: ");
-    Serial.println(LeftMotorSpeed);
+    Serial.print(LeftMotorSpeed);
+    Serial.print("   x: ");
+    Serial.print(x);
+    Serial.print("   y: ");
+    Serial.print(y);
+    Serial.print("  angle: ");
+    Serial.println(a);
 }
 
 //END OF MAIN
@@ -181,14 +191,11 @@ void loop() {
 // Changes PWM frequency for a given timer
 void set_pwm_frequency(int frequency) {
 
-  Timer1_Initialize();
-  Timer2_Initialize();
-  bool set_timer1_success = Timer1_SetFrequency(frequency);
-  bool set_timer2_success = Timer2_SetFrequency(frequency);
-  Serial.print("  Setting timer 1 frequency: ");
-  Serial.print(set_timer1_success);
-  Serial.print("  Setting timer 2 frequency: ");
-  Serial.print(set_timer2_success);
+  Timer5_Initialize();
+  bool set_timer5_success = Timer5_SetFrequency(frequency);
+  Serial.print("  Setting timer 5 frequency: ");
+  Serial.print(set_timer5_success);
+
 }
 
 // PID controller
@@ -199,23 +206,6 @@ double PID() {
   prev_error = error;
   double out = Kp*proportional + Ki*integral + Kd*derivative;
   return out;
-}
-
-// Scenario: No balls in sight
-void NoBalls() {
-  prev_error = 0;
-  unsigned long noBallInitTime = millis();
-  while(!pixy.ccc.numBlocks && millis() < noBallInitTime + noBallDelay) {
-    RMotor(conR, RightMotorSpeed);
-    LMotor(conL, LeftMotorSpeed);
-  }
-  // Stop after timeout
-  // Hold motors until ball found again
-  while(!pixy.ccc.numBlocks){
-    pixy.ccc.getBlocks();
-    RMotor(conR, 0);
-    LMotor(conL, 0);
-  }
 }
 
 // Limits the maximum speed of the motors to a chosen cap
