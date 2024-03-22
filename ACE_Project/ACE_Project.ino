@@ -7,10 +7,12 @@
 //Set pixy as main object
 Pixy2 pixy;
 
-// constants
-const int conR = 10; // pin 10 on timer 1
-const int conL = 9; // pin 9 on timer 1
-const int conI = 3; // pins 11 and 3 on timer 2 (pin 11 seems to not work though)
+// PINS
+const int conR = 46; // all should be on timer 5 of the mega
+const int conL = 45; // 
+const int conI = 44; // 
+
+// Constants
 const int frequency = 150; // do not change
 
 // pixy variables
@@ -22,7 +24,7 @@ const long closestY = 20; // [cm] Closest physical distance the ball is from the
 const long farthestY = 162; // [cm] Farthest distance ball is in camera view
 const long widestX = 126; // [cm] When ball is at farthest y, the widest x can be from center
 
-// Positional variables
+// Ball in Camera Positional variables
 double x_pos = 0;
 double y_pos = 0;
 
@@ -59,7 +61,7 @@ void setup() {
 
   //Initialize PWM
   InitTimersSafe();
-  set_pwm_frequency(frequency);
+  set_pwm_frequency(conL, frequency);
   
   // intialize pixy library
   pixy.init();
