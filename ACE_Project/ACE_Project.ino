@@ -58,15 +58,18 @@ bool ball;
 int x_pos_ooi = 158; //x position of object of interest
 int y_pos_ooi = 316; //y position of object of interest
 // Ball in Camera Positional variables
-double x_pos = 0;
-double y_pos = 0;
+double x_ball_pos = 0;
+double y_ball_pos = 0;
 // control variables
-double error; // error of offset angle 
-double prev_error = 0; // previous out for use with derivative controller (with compass this will get better)
+double a_error = 0; // a_error of offset angle 
+double prev_a_error = 0; // previous out for use with derivative controller (with compass this will get better)
 double a_out = 0;
-double integral = 0;
+double a_integral = 0;
+double d_error = 0;
+double prev_d_error = 0;
+double d_integral = 0;
+double baseSpeed = 0; // this is like a_out for d
 unsigned long last_time = 0;
-double baseSpeed = 0;
 int RightMotorSpeed = 0;
 int LeftMotorSpeed = 0;
 
@@ -78,11 +81,13 @@ const long widestX = 126; // [cm] When ball is at farthest y, the widest x can b
 // Algorithm constants
 // Speed
 const double maxSpeed = 150; // (0 - 255) Use this to holistically adjust speed of robot, everything is based on this
-//
-const double Kp = 0.5*(0.5*maxSpeed); // Gain of P
-const double Ki = 0.0006*maxSpeed; // integral multiplier
-const double Kd = 4*maxSpeed; // derivative multiplier
-const double dt = 5; // time between error updates
+// PID
+const double dt = 0.005; // (s) time between a_error updates (multiplied by 1000 to be used in millis()) 
+// Angle PID constants
+const double aKp = 0.5*(0.5*maxSpeed); // Gain of P
+const double aKi = 0.6*maxSpeed; // integral multiplier
+const double aKd = 0.004*maxSpeed; // derivative multiplier
+// BaseSpeed PID constants
 
 //Create instance of magnetometer
 Adafruit_LIS3MDL lis3mdl;
@@ -111,7 +116,7 @@ void setup() {
 
 void loop() {
 
-    // Execute Odometry
+    /// EXECUTE ODOMETRY
     Odometry();
 
     /// GET PIXY
@@ -125,32 +130,48 @@ void loop() {
       y_pos_ooi = pixy.ccc.blocks[0].m_y;
     }
 
-    /// ON_BOARD BALL TRACKING CONTROL MAPPING
+    /// ON_BOARD BALL TRACKING MAPPING
 
     // Map ball pos to real position on ground
-    y_pos = 289387*pow(y_pos_ooi, -1.796);
-    double xmax = y_pos*widestX/farthestY;
-    x_pos = map(x_pos_ooi, 0, 316, -xmax, xmax);
+    y_ball_pos = 289387*pow(y_pos_ooi, -1.796);
+    double xmax = y_ball_pos*widestX/farthestY;
+    x_ball_pos = map(x_pos_ooi, 0, 316, -xmax, xmax);
 
-    Serial.print("yballpos:  ");
-    Serial.print(y_pos);
-    Serial.print("   xballpos:  ");
-    Serial.print(x_pos);
-    // set robot to move forward towards the ball
-    baseSpeed = 30;//y_pos/farthestY*maxSpeed;
+    // ball position from camera is in cm due to the nature of the map function so lets make it metres to match everything else
+    y_ball_pos = y_ball_pos / 100;
+    x_ball_pos = x_ball_pos / 100;
+
+    /// EXTERNAL CAMERA
     
-    // Find Angle of offset using x and y; angle of ball with respect to robot (we want this to be 0)
-    error = atan(x_pos/y_pos); // converted error from sensor input into same units as desird value, i.e. radians/angle
+    if (ball == 0) {
+      // Do things based on external camera
+      // Overwrite camera-based ball positions and angle error with other points for robot to go to
+      // Pseudo code:
+      // Compute angle between bot and point
+      // Compute distance from point
+    } else { // ball = 1
+          // Find Angle of offset using x and y; angle of ball with respect to robot (we want this to be 0)
+          a_error = atan(x_ball_pos/y_ball_pos);
+          
+    }
+    
+    /// APPROACH TARGET
 
+    // Check control duty cycle
     unsigned long now = millis();
-    if (millis() > last_time + dt) {
-      a_out = PID();
+    if (millis() > last_time + dt*1000) {
+      a_out = PID(a_error, prev_a_error, a_integral, aKp, aKi, aKd, dt);
+      //baseSeed PID here
       last_time = millis();
     }
- 
+
+     // set robot to move forward towards the ball
+    baseSpeed = 30;
     // Set motor speeds
     RightMotorSpeed = baseSpeed - a_out;
     LeftMotorSpeed = baseSpeed + a_out;
+
+    LimitMotors(200);
 
     if (ball == 1) {
       // Run Motors
@@ -158,18 +179,22 @@ void loop() {
       LMotor(conL, LeftMotorSpeed);
       IMotor(conI, -40);
     } else {
-      prev_error = 0;
+      prev_a_error = 0;
       RMotor(conR, 0);
       LMotor(conL, 0);
     }
 
     /// PRINT Data
-//    Serial.print("xpos: ");
+//    Serial.print("xscreenpos: ");
 //    Serial.print(x_pos_ooi);
-//    Serial.print("ypos: ");
+//    Serial.print("yscreenpos: ");
 //    Serial.print(y_pos_ooi);
+//    Serial.print("yballpos:  ");
+//    Serial.print(y_pos);
+//    Serial.print("   xballpos:  ");
+//    Serial.print(x_pos);
     Serial.print("     Angle ofst from target: ");
-    Serial.print(error);
+    Serial.print(a_error);
     Serial.print("  R: ");
     Serial.print(RightMotorSpeed);
     Serial.print("   L: ");
@@ -182,7 +207,7 @@ void loop() {
     Serial.println(a);
 }
 
-//END OF MAIN
+///END OF MAIN
 //
 //
 //
@@ -199,7 +224,7 @@ void set_pwm_frequency(int frequency) {
 }
 
 // PID controller
-double PID() {
+double PID(double error, double &prev_error, double &integral, double Kp, double Ki, double Kd, double dt) {
   double proportional = error;
   integral += error*dt;
   double derivative = (error - prev_error) / dt;
@@ -211,7 +236,7 @@ double PID() {
 // Limits the maximum speed of the motors to a chosen cap
 void LimitMotors(int maxSpeed) {
   
-    //If the motors are > maxSpeed, or < maxSpeed, we set speed to the max
+    //If the motors are > maxSpeed, or < -maxSpeed, we set speed to the abs(max)
 
     // Right
     if(RightMotorSpeed > maxSpeed)
@@ -256,7 +281,7 @@ void LimitMotors(int maxSpeed) {
     }
 }
 
-// ODOMETRY FUNCTIONS
+/// ODOMETRY FUNCTIONS
 void StartOdometry() {
   attachInterrupt(digitalPinToInterrupt(rCLK), rEncMove, CHANGE);
   attachInterrupt(digitalPinToInterrupt(lCLK), lEncMove, CHANGE);
@@ -267,7 +292,7 @@ void StartOdometry() {
   lPreviousDATA = digitalRead(lDT);
 
   if (!lis3mdl.begin_I2C()) {
-    Serial.println("ERROR: Could not find magnetometer");
+    Serial.println("error: Could not find magnetometer");
   }
 }
 
@@ -328,7 +353,6 @@ void Odometry() {
 
 }
 
-//FUNCTIONS
 // Check if Rotary Encoder was moved on thr right side
 void check_rotary_R() {
 
