@@ -84,10 +84,13 @@ const double maxSpeed = 150; // (0 - 255) Use this to holistically adjust speed 
 // PID
 const double dt = 0.005; // (s) time between a_error updates (multiplied by 1000 to be used in millis()) 
 // Angle PID constants
-const double aKp = 0.5*(0.5*maxSpeed); // Gain of P
+const double aKp = 0.25*maxSpeed; // Gain of P
 const double aKi = 0.6*maxSpeed; // integral multiplier
 const double aKd = 0.004*maxSpeed; // derivative multiplier
 // BaseSpeed PID constants
+const double dKp = 0.5*maxSpeed; // Gain of P
+const double dKi = 0.01*maxSpeed; // integral multiplier
+const double dKd = 0.004*maxSpeed; // derivative multiplier
 
 //Create instance of magnetometer
 Adafruit_LIS3MDL lis3mdl;
@@ -145,14 +148,14 @@ void loop() {
     
     if (ball == 0) {
       // Do things based on external camera
-      // Overwrite camera-based ball positions and angle error with other points for robot to go to
-      // Pseudo code:
-      // Compute angle between bot and point
-      // Compute distance from point
+      // Set targets:
+      // Overwrite camera-based ball positions and angle error with other points and angles for robot to go to
+      // Compute angle between bot and target, target 0
+      // Compute distance from point, target 0
     } else { // ball = 1
-          // Find Angle of offset using x and y; angle of ball with respect to robot (we want this to be 0)
+          // Set error with target of 0
           a_error = atan(x_ball_pos/y_ball_pos);
-          
+          d_error = y_ball_pos;
     }
     
     /// APPROACH TARGET
@@ -161,12 +164,10 @@ void loop() {
     unsigned long now = millis();
     if (millis() > last_time + dt*1000) {
       a_out = PID(a_error, prev_a_error, a_integral, aKp, aKi, aKd, dt);
-      //baseSeed PID here
+      baseSpeed = PID(d_error, prev_d_error, d_integral, dKp, dKi, dKd, dt);
       last_time = millis();
     }
 
-     // set robot to move forward towards the ball
-    baseSpeed = 30;
     // Set motor speeds
     RightMotorSpeed = baseSpeed - a_out;
     LeftMotorSpeed = baseSpeed + a_out;
