@@ -53,8 +53,8 @@ const float soft_iron[3][3] = {
 static float heading = 0;
 
 // TRACKING VARIABLES
+bool go = 1; // This allows the motors to drive. Setting this to zero prevents robot to drive
 // pixy variables
-bool ball;
 int x_pos_ooi = 158; //x position of object of interest
 int y_pos_ooi = 316; //y position of object of interest
 // Ball in Camera Positional variables
@@ -126,42 +126,43 @@ void loop() {
     pixy.ccc.getBlocks();
     if (!pixy.ccc.numBlocks)
     {
-      ball = 0;
-    } else{
-      ball = 1;
-      x_pos_ooi = pixy.ccc.blocks[0].m_x; // will focus on first seen object
-      y_pos_ooi = pixy.ccc.blocks[0].m_y;
-    }
-
-    /// ON_BOARD BALL TRACKING MAPPING
-
-    // Map ball pos to real position on ground
-    y_ball_pos = 289387*pow(y_pos_ooi, -1.796);
-    double xmax = y_ball_pos*widestX/farthestY;
-    x_ball_pos = map(x_pos_ooi, 0, 316, -xmax, xmax);
-
-    // ball position from camera is in cm due to the nature of the map function so lets make it metres to match everything else
-    y_ball_pos = y_ball_pos / 100;
-    x_ball_pos = x_ball_pos / 100;
-
-    /// EXTERNAL CAMERA
-    
-    if (ball == 0) {
+      go = 0;
+      /// EXTERNAL CAMERA
+      prev_a_error = 0;
+      prev_d_error = 0;
+      a_error = 0;
+      d_error = 0;
       // Do things based on external camera
       // Set targets:
       // Overwrite camera-based ball positions and angle error with other points and angles for robot to go to
       // Compute angle between bot and target, target 0
       // Compute distance from point, target 0
-    } else { // ball = 1
-          // Set error with target of 0
-          a_error = atan(x_ball_pos/y_ball_pos);
-          d_error = y_ball_pos;
+    } else {
+      go = 1;
+      x_pos_ooi = pixy.ccc.blocks[0].m_x; // will focus on first seen object
+      y_pos_ooi = pixy.ccc.blocks[0].m_y;
+      
+      /// ON_BOARD BALL TRACKING MAPPING
+
+      // Map ball pos to real position on ground
+      y_ball_pos = 289387*pow(y_pos_ooi, -1.796);
+      double xmax = y_ball_pos*widestX/farthestY;
+      x_ball_pos = map(x_pos_ooi, 0, 316, -xmax, xmax);
+  
+      // ball position from camera is in cm due to the nature of the map function so lets make it metres to match everything else
+      y_ball_pos = y_ball_pos / 100;
+      x_ball_pos = x_ball_pos / 100;
+  
+      // Set error with target of 0
+      a_error = atan(x_ball_pos/y_ball_pos);
+      d_error = y_ball_pos;
+
+      IMotor(conI, -40); // Run intake when ball in view
     }
     
     /// APPROACH TARGET
 
-    // Check control duty cycle
-    unsigned long now = millis();
+    // Check control feedback
     if (millis() > last_time + dt*1000) {
       a_out = PID(a_error, prev_a_error, a_integral, aKp, aKi, aKd, dt);
       baseSpeed = PID(d_error, prev_d_error, d_integral, dKp, dKi, dKd, dt);
@@ -174,13 +175,11 @@ void loop() {
 
     LimitMotors(200);
 
-    if (ball == 1) {
+    if (go == 1) {
       // Run Motors
       RMotor(conR, RightMotorSpeed);
       LMotor(conL, LeftMotorSpeed);
-      IMotor(conI, -40);
     } else {
-      prev_a_error = 0;
       RMotor(conR, 0);
       LMotor(conL, 0);
     }
