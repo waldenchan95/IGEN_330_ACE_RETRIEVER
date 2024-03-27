@@ -14,17 +14,17 @@ Pixy2 pixy;
 
 // PINS
 // Motor
-const int conR = 46; // all should be on timer 5 of the mega
-const int conL = 45; // 
+const int conR = 6; // all should be on timer 5 of the mega
+const int conL = 7; // 
 const int conI = 44; // 
 // Rotary Encoder Module connections
-const int rDT = 7;    // DATA signal
+const int rDT = 13;    // DATA signal //PLACEHOLDER
 const int rCLK = 19;    // CLOCK signal
-const int lDT = 6;    // DATA signal
+const int lDT = 12;    // DATA signal //PLACEHOLDER
 const int lCLK = 18;    // CLOCK signal
 
 // Motor PWM Frequency
-const int frequency = 150; // do not change
+const int input_frequency = 150; // do not change
 
 // ODOMETRY VARIABLES
 // Store previous Pins state
@@ -80,17 +80,17 @@ const long farthestY = 162; // [cm] Farthest distance ball is in camera view
 const long widestX = 126; // [cm] When ball is at farthest y, the widest x can be from center
 // Algorithm constants
 // Speed
-const double maxSpeed = 150; // (0 - 255) Use this to holistically adjust speed of robot, everything is based on this
+const double maxSpeed = 200; // (0 - 255) Use this to holistically adjust speed of robot, everything is based on this
 // PID
 const double dt = 0.005; // (s) time between a_error updates (multiplied by 1000 to be used in millis()) 
 // Angle PID constants
-const double aKp = 0.25*maxSpeed; // Gain of P
+const double aKp = 0.7*maxSpeed; // Gain of P
 const double aKi = 0.6*maxSpeed; // integral multiplier
-const double aKd = 0.004*maxSpeed; // derivative multiplier
+const double aKd = 0.008*maxSpeed; // derivative multiplier
 // BaseSpeed PID constants
-const double dKp = 0.5*maxSpeed; // Gain of P
-const double dKi = 0.01*maxSpeed; // integral multiplier
-const double dKd = 0.004*maxSpeed; // derivative multiplier
+const double dKp = 0.3*maxSpeed; // Gain of P
+const double dKi = 0.17*maxSpeed; // integral multiplier
+const double dKd = 0.01*maxSpeed; // derivative multiplier
 
 //Create instance of magnetometer
 Adafruit_LIS3MDL lis3mdl;
@@ -108,7 +108,7 @@ void setup() {
 
   //Initialize PWM
   InitTimersSafe();
-  set_pwm_frequency(frequency);
+  set_pwm_frequency(input_frequency);
   
   // intialize pixy library
   pixy.init();
@@ -127,6 +127,7 @@ void loop() {
     if (!pixy.ccc.numBlocks)
     {
       go = 0;
+      IMotor(conI, 40); // DO NOT Run intake when ball NOT in view
       /// EXTERNAL CAMERA
       prev_a_error = 0;
       prev_d_error = 0;
@@ -157,7 +158,7 @@ void loop() {
       a_error = atan(x_ball_pos/y_ball_pos);
       d_error = y_ball_pos;
 
-      IMotor(conI, -40); // Run intake when ball in view
+      IMotor(conI, 40); // Run intake when ball in view
     }
     
     /// APPROACH TARGET
@@ -213,14 +214,15 @@ void loop() {
 //
 ///FUNCTIONS BELOW
 
-// Changes PWM frequency for a given timer
-void set_pwm_frequency(int frequency) {
+void set_pwm_frequency(int input_frequency) {
 
-  Timer5_Initialize();
-  bool set_timer5_success = Timer5_SetFrequency(frequency);
+  bool set_timer4_success = Timer4_SetFrequency(input_frequency);
+  Serial.print("  Setting timer 4 frequency: ");
+  Serial.print(set_timer4_success);
+
+  bool set_timer5_success = Timer5_SetFrequency(input_frequency);
   Serial.print("  Setting timer 5 frequency: ");
   Serial.print(set_timer5_success);
-
 }
 
 // PID controller
