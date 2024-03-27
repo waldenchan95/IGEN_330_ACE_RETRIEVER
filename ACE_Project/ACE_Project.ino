@@ -80,17 +80,17 @@ const long farthestY = 162; // [cm] Farthest distance ball is in camera view
 const long widestX = 126; // [cm] When ball is at farthest y, the widest x can be from center
 // Algorithm constants
 // Speed
-const double maxSpeed = 200; // (0 - 255) Use this to holistically adjust speed of robot, everything is based on this
+const double maxSpeed = 100; // (0 - 255) Use this to holistically adjust speed of robot, everything is based on this
 // PID
 const double dt = 0.005; // (s) time between a_error updates (multiplied by 1000 to be used in millis()) 
 // Angle PID constants
-const double aKp = 0.7*maxSpeed; // Gain of P
-const double aKi = 0.6*maxSpeed; // integral multiplier
-const double aKd = 0.008*maxSpeed; // derivative multiplier
+const double aKp = 1.4*maxSpeed; // Gain of P
+const double aKi = 1.2*maxSpeed; // integral multiplier
+const double aKd = 0.016*maxSpeed; // derivative multiplier
 // BaseSpeed PID constants
-const double dKp = 0.3*maxSpeed; // Gain of P
-const double dKi = 0.17*maxSpeed; // integral multiplier
-const double dKd = 0.01*maxSpeed; // derivative multiplier
+const double dKp = 0.6*maxSpeed; // Gain of P
+const double dKi = 0.34*maxSpeed; // integral multiplier
+const double dKd = 0.02*maxSpeed; // derivative multiplier
 
 //Create instance of magnetometer
 Adafruit_LIS3MDL lis3mdl;
@@ -107,7 +107,6 @@ void setup() {
   Serial.print("Starting...\n");
 
   //Initialize PWM
-  InitTimersSafe();
   set_pwm_frequency(input_frequency);
   
   // intialize pixy library
@@ -127,7 +126,7 @@ void loop() {
     if (!pixy.ccc.numBlocks)
     {
       go = 0;
-      IMotor(conI, 40); // DO NOT Run intake when ball NOT in view
+      IMotor(conI, 0); // DO NOT Run intake when ball NOT in view
       /// EXTERNAL CAMERA
       prev_a_error = 0;
       prev_d_error = 0;
@@ -216,6 +215,8 @@ void loop() {
 
 void set_pwm_frequency(int input_frequency) {
 
+  InitTimersSafe();
+  
   bool set_timer4_success = Timer4_SetFrequency(input_frequency);
   Serial.print("  Setting timer 4 frequency: ");
   Serial.print(set_timer4_success);
