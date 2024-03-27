@@ -14,7 +14,7 @@ Pixy2 pixy;
 
 // OVERALL CONTROL
 // States
-enum States { WAIT, GOTO_PT, GOTO_BALL, GET_BALL, CHK_DONE, GO_HOME } state;
+enum States { WAIT, GOTO_PT, GOTO_BALL, GET_BALL, CHK_DONE, GO_HOME, HOLD } state;
 // Commands
 enum Commands { start, e_stop, e_home } command;
 // Controlled externally: tells robot if there are any more balls it must go to
@@ -144,6 +144,10 @@ void loop() {
           state = GO_HOME;
         else
           state = WAIT;
+        prev_a_error = 0;
+        prev_d_error = 0;
+        a_error = 0;
+        d_error = 0;
         RightMotorSpeed = 0;
         LeftMotorSpeed = 0;
         IntakeSpeed = 0;
@@ -226,6 +230,10 @@ void loop() {
           state = GET_BALL;
         else
           state = CHK_DONE;
+        prev_a_error = 0;
+        prev_d_error = 0;
+        a_error = 0;
+        d_error = 0;
         RightMotorSpeed = 0.4*maxSpeed;
         LeftMotorSpeed = 0.4*maxSpeed;
         IntakeSpeed = 40;
@@ -238,7 +246,29 @@ void loop() {
       break;
       case GO_HOME:
         state = WAIT;
+        prev_a_error = 0;
+        prev_d_error = 0;
+        a_error = 0;
+        d_error = 0;
+        RightMotorSpeed = 0;
+        LeftMotorSpeed = 0;
+        IntakeSpeed = 0;
         // Will check if near enough to HOME and then go to WAIT
+      break;
+      case HOLD:
+        if (command = e_stop) {
+          state = HOLD;
+        } else if (command = e_home) {
+          state = GO_HOME;
+        } else
+          state = WAIT;
+        prev_a_error = 0;
+        prev_d_error = 0;
+        a_error = 0;
+        d_error = 0;
+        RightMotorSpeed = 0;
+        LeftMotorSpeed = 0;
+        IntakeSpeed = 0;
       break;
       default:
         state = WAIT;
