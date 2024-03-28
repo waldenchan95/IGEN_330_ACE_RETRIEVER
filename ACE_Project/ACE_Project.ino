@@ -1,5 +1,4 @@
 // NEED TO ADD:
-// startup angle set to 0 and communicated with external system; 
 // Once odometry is tested: point target error, hold angle during WAIT state
 
 #include <Pixy2.h>
@@ -18,7 +17,7 @@ enum States { SETUP, WAIT, GOTO_PT, GOTO_BALL, GET_BALL, CHK_DONE, GO_HOME, HOLD
 // Commands
 enum Commands { start, e_stop, e_home } command;
 // Controlled externally: tells robot if there are any more balls it must go to
-bool balls = 0;
+bool pt_valid = 0;
 
 // Variables
 unsigned long init_ball_seen_time; // When robot sees ball in pixy it waits a short time to determine if the object is consistent before going
@@ -95,6 +94,7 @@ const long closestY = 20; // [cm] Closest physical distance the ball is from the
 const long farthestY = 162; // [cm] Farthest distance ball is in camera view
 const long widestX = 126; // [cm] When ball is at farthest y, the widest x can be from center
 // Algorithm constants
+const int baseSpeedMax = 180;
 // PID
 const double dt = 0.005; // (s) time between a_error updates (multiplied by 1000 to be used in millis()) 
 // Angle PID constants
@@ -172,6 +172,9 @@ void loop() {
         LeftMotorSpeed = a_out;
       break;
       case GOTO_PT:
+        if (!pt_valid) {
+          nxt_state = GOTO_BALL;
+        }
         pixy.ccc.getBlocks();
         if (pixy.ccc.numBlocks && millis() > init_ball_seen_time + 500) {
             nxt_state = GOTO_BALL;
@@ -205,6 +208,10 @@ void loop() {
           a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, dt);
           baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, dt);
           last_time = millis();
+        }
+        
+        if (baseSpeed > baseSpeedMax) {
+          baseSpeed = baseSpeedMax;
         }
         // Set motor speeds
         RightMotorSpeed = baseSpeed - a_out;
@@ -251,6 +258,10 @@ void loop() {
           baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, dt);
           last_time = millis();
         }
+
+        if (baseSpeed > baseSpeedMax) {
+          baseSpeed = baseSpeedMax;
+        }
         // Set motor speeds
         RightMotorSpeed = baseSpeed - a_out;
         LeftMotorSpeed = baseSpeed + a_out;
@@ -276,7 +287,7 @@ void loop() {
         IntakeSpeed = 40;
       break;
       case CHK_DONE:
-        if (balls = 0)
+        if (pt_valid == 0)
           nxt_state = GO_HOME;
         else
           nxt_state = GOTO_PT;
@@ -300,9 +311,9 @@ void loop() {
         // Will check if near enough to HOME and then go to WAIT
       break;
       case HOLD:
-        if (command = e_stop) {
+        if (command == e_stop) {
           nxt_state = HOLD;
-        } else if (command = e_home) {
+        } else if (command == e_home) {
           nxt_state = GO_HOME;
         } else
           nxt_state = WAIT;
