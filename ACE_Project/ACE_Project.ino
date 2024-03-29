@@ -84,7 +84,7 @@ double y_ball_pos = 0;
 // Target Point (populated by external system)
 double x_target = 3; // W/O external input we can hardcode a position and try to go there
 double y_target = 2;
-double x_error;
+double x_error; // components of positional error only used in intermediate steps
 double y_error;
 // control variables
 double a_error = 0; // a_error of offset angle 
