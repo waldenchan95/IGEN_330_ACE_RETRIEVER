@@ -24,7 +24,7 @@ unsigned long init_ball_seen_time; // When robot sees ball in pixy it waits a sh
 
 // Odometry Definitions
 #define CLKS_PER_SAMPLE 4 // pure counts of encoder
-#define DIST_PER_CLK 0.005984734 // 3inch wheel, 40 clicks per rotation (m)
+#define DIST_PER_CLK 0.005984734*240/207 // 3inch wheel, 40 clicks per rotation (m)
 
 // PINS
 // Motor
@@ -56,8 +56,9 @@ double a = 0; //(rad)
 // Magnetometer
 double startingAngle = 0; // This angle is whichever way the robot is facing upon startup which becomes the origin angle
 // Hard-iron calibration settings
+// (13.72, -6.64, -46.90)
 const float hard_iron[3] = {
-  -12.04,  -15.64,  13.31
+  13.72,  -6.64,  -46.90
 };
 // Soft-iron calibration settings
 const float soft_iron[3][3] = {
@@ -115,7 +116,7 @@ void setup() {
   pinMode(conL, OUTPUT);
   pinMode(conI, OUTPUT);
   // start serial communication
-  Serial.begin(115200);
+  Serial.begin(9600);
   Serial.print("Starting...\n");
   //Initialize PWM
   set_pwm_frequency(input_frequency);
@@ -125,6 +126,7 @@ void setup() {
   StartOdometry();
   // First state
   state = SETUP;
+  command = start; // random big number that is nothing
 }
 
 void loop() {
@@ -352,10 +354,10 @@ void loop() {
 //    Serial.print(RightMotorSpeed);
 //    Serial.print("   L: ");
 //    Serial.print(LeftMotorSpeed);
-    Serial.print("   x: ");
-    Serial.print(x, 5);
+//    Serial.print("   x: ");
+    Serial.print(x, 2);
     Serial.print("   y: ");
-    Serial.print(y, 5);
+    Serial.print(y, 2);
     Serial.print("  angle: ");
     Serial.print(a, 5);
     Serial.print("  STATE: ");
@@ -490,13 +492,14 @@ void Odometry() {
   // Calculate angle for heading, assuming board is parallel to
   // the ground and  Y points toward heading.
   heading = -1.0 * (atan2(mag_data[0], mag_data[1])*180)/PI;
+//  a = heading*PI/180;
   a = heading;
-  // Correct angle to starting position
-  a = a - startingAngle;
   // Convert heading to 0-2pi degrees
   if (a < 0) {
-    a += 2*PI;
+    a += 360;
   }
+  // Correct angle to starting position
+  //a = a - startingAngle;
   
   if (abs(rcounter) > CLKS_PER_SAMPLE || abs(lcounter) > CLKS_PER_SAMPLE) {
     double rdistance = rcounter * DIST_PER_CLK;
