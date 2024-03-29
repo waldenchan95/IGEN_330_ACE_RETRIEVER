@@ -52,9 +52,15 @@ int lcounter = 0;
 // Position variables
 double x = 0; //(m)
 double y = 0; //(m)
-double a = 0; //(rad)
+double a = 0; //(rad) // raw angle data
+double a_filtered = 0; //(rad) angle after it has been filtered
+double a_deg = 0; //(deg) Used purely for troubleshooting
 // Magnetometer
 double startingAngle = 0; // This angle is whichever way the robot is facing upon startup which becomes the origin angle
+// WSF Filter
+double flt_coeff[4] { 0.74, 0.195, 0.05, 0.015 };
+double flt_prev[3] { 0, 0, 0 };
+unsigned long flt_last_time = 0;
 // Hard-iron calibration settings
 // (13.72, -6.64, -46.90)
 const float hard_iron[3] = {
@@ -164,7 +170,7 @@ void loop() {
       
         // Maintain starting angle.
         // This will also revert the robot back to the correct angle after coming home during the GO_HOME state
-        a_error = a;
+        a_error = a_filtered;
         if (millis() > last_time + dt*1000) {
           a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, dt);
           last_time = millis();
@@ -197,6 +203,7 @@ void loop() {
         } else if (command == e_home) {
           nxt_state = GO_HOME;
         }
+        
         /// EXTERNAL CAMERA/POINT TARGET
         IntakeSpeed = 0; // DO NOT Run intake when ball NOT in view
               // Do things based on external camera
@@ -492,21 +499,34 @@ void Odometry() {
   // Calculate angle for heading, assuming board is parallel to
   // the ground and  Y points toward heading.
   heading = -1.0 * (atan2(mag_data[0], mag_data[1])*180)/PI;
-//  a = heading*PI/180;
-  a = heading;
+  a_deg = heading; // Saving the magnetic heading in degrees for troubleshooting
+  if (a_deg < 0) {
+    a_deg += 360;
+  }
+  
+  a = heading*PI/180;
   // Convert heading to 0-2pi degrees
   if (a < 0) {
-    a += 360;
+    a += 2*PI;
   }
   // Correct angle to starting position
-  //a = a - startingAngle;
-  
+  a = a - startingAngle;
+
+  // Filter Signal
+  if (millis() > flt_last_time + 2) {
+    flt_last_time = millis();
+    a_filtered = a*flt_coeff[0] + flt_prev[0]*flt_coeff[1] + flt_prev[1]*flt_coeff[2] + flt_prev[2]*flt_coeff[3];
+    flt_prev[2] = flt_prev[1];
+    flt_prev[1] = flt_prev[0];
+    flt_prev[0] = a;
+  }
+
   if (abs(rcounter) > CLKS_PER_SAMPLE || abs(lcounter) > CLKS_PER_SAMPLE) {
     double rdistance = rcounter * DIST_PER_CLK;
     double ldistance = lcounter * DIST_PER_CLK;
     double dd = (rdistance + ldistance) / 2.0;
-    double dx = cos(a) * dd;
-    double dy = sin(a) * dd;
+    double dx = cos(a_filtered) * dd;
+    double dy = sin(a_filtered) * dd;
     x = x + dx;
     y = y + dy;
     
