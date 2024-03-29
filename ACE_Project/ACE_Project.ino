@@ -29,13 +29,13 @@ unsigned long init_ball_seen_time; // When robot sees ball in pixy it waits a sh
 // PINS
 // Motor
 const int conR = 6; // all should be on timer 5 of the mega
-const int conL = 7; // 
+const int conL = 7; // Yellow
 const int conI = 44; // 
 // Rotary Encoder Module connections
-const int rDT = 5;    // DATA signal 
-const int rCLK = 19;    // CLOCK signal
-const int lDT = 4;    // DATA signal 
-const int lCLK = 18;    // CLOCK signal
+const int rDT = 5;    // DATA signal  // ORnge
+const int rCLK = 19;    // CLOCK signal //green
+const int lDT = 4;    // DATA signal // ornGE
+const int lCLK = 18;    // CLOCK signal //green
 
 // Motor PWM Frequency
 const int input_frequency = 150; // do not change
@@ -353,11 +353,11 @@ void loop() {
 //    Serial.print("   L: ");
 //    Serial.print(LeftMotorSpeed);
     Serial.print("   x: ");
-    Serial.print(x);
+    Serial.print(x, 5);
     Serial.print("   y: ");
-    Serial.print(y);
+    Serial.print(y, 5);
     Serial.print("  angle: ");
-    Serial.print(a);
+    Serial.print(a, 5);
     Serial.print("  STATE: ");
     Serial.println(state);
 }
@@ -490,7 +490,7 @@ void Odometry() {
   // Calculate angle for heading, assuming board is parallel to
   // the ground and  Y points toward heading.
   heading = -1.0 * (atan2(mag_data[0], mag_data[1])*180)/PI;
-  a = heading/180*PI;
+  a = heading;
   // Correct angle to starting position
   a = a - startingAngle;
   // Convert heading to 0-2pi degrees
