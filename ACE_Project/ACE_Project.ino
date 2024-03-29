@@ -147,7 +147,7 @@ void loop() {
     /// STATEMACHINE
     switch(state) {
       case SETUP:
-        if (millis() > 1000) { // give some time for odometry to read position
+        if (millis() > 600) { // give some time for odometry to read position
           nxt_state = WAIT;
           startingAngle = a;
         }
@@ -386,12 +386,16 @@ void loop() {
 //    Serial.print(RightMotorSpeed);
 //    Serial.print("   L: ");
 //    Serial.print(LeftMotorSpeed);
-//    Serial.print("   x: ");
+    Serial.print("   x: ");
     Serial.print(x, 2);
     Serial.print("   y: ");
     Serial.print(y, 2);
-    Serial.print("  angle: ");
+    Serial.print("  angle_deg: ");
+    Serial.print(a_deg, 5);
+    Serial.print("  bot_angle: ");
     Serial.print(a, 5);
+    Serial.print("  Filtered angle: ");
+    Serial.print(a_filtered, 5);
     Serial.print("  STATE: ");
     Serial.println(state);
 }
@@ -537,7 +541,7 @@ void Odometry() {
   // Correct angle to starting position
   a = a - startingAngle;
 
-  // Filter Signal
+   //Filter Signal
   if (millis() > flt_last_time + 2) {
     flt_last_time = millis();
     a_filtered = a*flt_coeff[0] + flt_prev[0]*flt_coeff[1] + flt_prev[1]*flt_coeff[2] + flt_prev[2]*flt_coeff[3];
