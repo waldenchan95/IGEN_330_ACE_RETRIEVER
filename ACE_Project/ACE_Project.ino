@@ -15,7 +15,7 @@ Pixy2 pixy;
 // States
 enum States { SETUP, WAIT, GOTO_PT, GOTO_BALL, GET_BALL, CHK_DONE, GO_HOME, HOLD } state, nxt_state;
 // Commands
-enum Commands { start, e_stop, e_home } command;
+enum Commands { wait, start, e_stop, e_home } command;
 // Controlled externally: tells robot if there are any more balls it must go to
 bool pt_valid = 0;
 
@@ -78,9 +78,14 @@ static float heading = 0;
 // pixy variables
 int x_pos_ooi = 158; //x position of object of interest
 int y_pos_ooi = 316; //y position of object of interest
-// Ball in Camera Positional variables
+// Ball in Camera Positional variables (Mapped to real world position)
 double x_ball_pos = 0;
 double y_ball_pos = 0;
+// Target Point (populated by external system)
+double x_target = 3; // W/O external input we can hardcode a position and try to go there
+double y_target = 2;
+double x_error;
+double y_error;
 // control variables
 double a_error = 0; // a_error of offset angle 
 double prev_a_error = 0; // previous out for use with derivative controller (with compass this will get better)
@@ -132,7 +137,7 @@ void setup() {
   StartOdometry();
   // First state
   state = SETUP;
-  command = start; // random big number that is nothing
+  command = start;
 }
 
 void loop() {
@@ -206,11 +211,12 @@ void loop() {
         
         /// EXTERNAL CAMERA/POINT TARGET
         IntakeSpeed = 0; // DO NOT Run intake when ball NOT in view
-              // Do things based on external camera
-              // Set targets:
-              // Overwrite camera-based ball positions and angle error with other points and angles for robot to go to
-              // Compute angle between bot and target, target 0
-              // Compute distance from point, target 0
+
+        x_error = x_target - x;
+        y_error = y_target - y;
+        d_error = sqrt(pow(x_error, 2) + pow(y_error, 2));
+        a_error = atan(y_error/x_error) - a_filtered;
+        
         /// APPROACH TARGET
         // Check control feedback
         if (millis() > last_time + dt*1000) {
@@ -316,8 +322,27 @@ void loop() {
         RightMotorSpeed = 0;
         LeftMotorSpeed = 0;
         IntakeSpeed = 0;
-        // will go home
-        // Will check if near enough to HOME and then go to WAIT
+        
+        // Set target as 0, 0 and go home
+        x_error = 0 - x;
+        y_error = 0 - y;
+        d_error = sqrt(pow(x_error, 2) + pow(y_error, 2));
+        a_error = atan(y_error/x_error) - a_filtered;
+        
+        /// APPROACH TARGET
+        // Check control feedback
+        if (millis() > last_time + dt*1000) {
+          a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, dt);
+          baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, dt);
+          last_time = millis();
+        }
+        
+        if (baseSpeed > baseSpeedMax) {
+          baseSpeed = baseSpeedMax;
+        }
+        // Set motor speeds
+        RightMotorSpeed = baseSpeed - a_out;
+        LeftMotorSpeed = baseSpeed + a_out;
       break;
       case HOLD:
         if (command == e_stop) {
