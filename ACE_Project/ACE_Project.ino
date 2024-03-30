@@ -58,8 +58,8 @@ double a_deg = 0; //(deg) Used purely for troubleshooting
 // Magnetometer
 double startingAngle = 0; // This angle is whichever way the robot is facing upon startup which becomes the origin angle
 // WSF Filter
-double flt_coeff[4] { 0.74, 0.195, 0.05, 0.015 };
-double flt_prev[3] { 0, 0, 0 };
+double flt_coeff[15] { 0.252, 0.1894, 0.1423, 0.1069, 0.0804, 0.0604, 0.0454, 0.0341, 0.0256, 0.0193, 0.0145, 0.0109, 0.0082, 0.0061, 0.0046 };
+double flt_prev[14] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 unsigned long flt_last_time = 0;
 // Hard-iron calibration settings
 // (13.72, -6.64, -46.90)
@@ -110,8 +110,8 @@ const int baseSpeedMax = 180;
 // PID
 const double dt = 0.005; // (s) time between a_error updates (multiplied by 1000 to be used in millis()) 
 // Angle PID constants
-const double aK = 140; // MASTER GAIN rotation
-const double aKi = 120; // integral multiplier
+const double aK = 140/4; // MASTER GAIN rotation
+const double aKi = 120/4; // integral multiplier
 const double aKd = 1.6; // derivative multiplier
 // BaseSpeed PID constants
 const double dK = 60; // MASTER GAIN drive
@@ -127,7 +127,7 @@ void setup() {
   pinMode(conL, OUTPUT);
   pinMode(conI, OUTPUT);
   // start serial communication
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.print("Starting...\n");
   //Initialize PWM
   set_pwm_frequency(input_frequency);
@@ -137,7 +137,7 @@ void setup() {
   StartOdometry();
   // First state
   state = SETUP;
-  command = start;
+  command = wait;
 }
 
 void loop() {
@@ -150,6 +150,7 @@ void loop() {
         if (millis() > 600) { // give some time for odometry to read position
           nxt_state = WAIT;
           startingAngle = a;
+          IntakeSpeed = 0;
         }
         else
           nxt_state = SETUP;
@@ -175,7 +176,7 @@ void loop() {
       
         // Maintain starting angle.
         // This will also revert the robot back to the correct angle after coming home during the GO_HOME state
-        a_error = a_filtered;
+        a_error = -a_filtered;
         if (millis() > last_time + dt*1000) {
           a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, dt);
           last_time = millis();
@@ -184,31 +185,7 @@ void loop() {
         RightMotorSpeed = -a_out;
         LeftMotorSpeed = a_out;
       break;
-      case GOTO_PT:
-        if (!pt_valid) {
-          nxt_state = GOTO_BALL;
-        }
-        pixy.ccc.getBlocks();
-        if (pixy.ccc.numBlocks && millis() > init_ball_seen_time + 500) {
-            nxt_state = GOTO_BALL;
-            prev_a_error = 0;
-            prev_d_error = 0;
-            a_error = 0;
-            d_error = 0;
-            last_time = millis();
-            RightMotorSpeed = 0;
-            LeftMotorSpeed = 0;
-            IntakeSpeed = 0;
-        } else {
-          init_ball_seen_time = millis(); // when ball is seen this will be the initial time it was seen
-          nxt_state = GOTO_PT;
-        }
-        if (command == e_stop) {
-          nxt_state = HOLD;
-        } else if (command == e_home) {
-          nxt_state = GO_HOME;
-        }
-        
+      case GOTO_PT:   
         /// EXTERNAL CAMERA/POINT TARGET
         IntakeSpeed = 0; // DO NOT Run intake when ball NOT in view
 
@@ -231,6 +208,33 @@ void loop() {
         // Set motor speeds
         RightMotorSpeed = baseSpeed - a_out;
         LeftMotorSpeed = baseSpeed + a_out;
+        
+        // State logic
+        if (!pt_valid) {
+          nxt_state = GOTO_BALL;
+        }
+        pixy.ccc.getBlocks();
+        if (pixy.ccc.numBlocks && millis() > init_ball_seen_time + 500) {
+            nxt_state = GOTO_BALL;
+            prev_a_error = 0;
+            prev_d_error = 0;
+            a_error = 0;
+            d_error = 0;
+            last_time = millis();
+            RightMotorSpeed = 0;
+            LeftMotorSpeed = 0;
+            IntakeSpeed = 0;
+        } else if(x_error < 0.40 && y_error < 0.40) {
+          nxt_state = GOTO_BALL;
+        } else {
+          init_ball_seen_time = millis(); // when ball is seen this will be the initial time it was seen
+          nxt_state = GOTO_PT;
+        }
+        if (command == e_stop) {
+          nxt_state = HOLD;
+        } else if (command == e_home) {
+          nxt_state = GO_HOME;
+        }
       break;
       case GOTO_BALL:
         IntakeSpeed = 40; // Run intake when ball in view
@@ -312,6 +316,8 @@ void loop() {
           nxt_state = HOLD;
         } else if (command == e_home) {
           nxt_state = GO_HOME;
+        } else if (x_error < 0.40 && y_error < 0.40) {
+          nxt_state = WAIT;
         }
         nxt_state = WAIT;
         prev_a_error = 0;
@@ -386,18 +392,19 @@ void loop() {
 //    Serial.print(RightMotorSpeed);
 //    Serial.print("   L: ");
 //    Serial.print(LeftMotorSpeed);
-    Serial.print("   x: ");
-    Serial.print(x, 2);
-    Serial.print("   y: ");
-    Serial.print(y, 2);
-    Serial.print("  angle_deg: ");
-    Serial.print(a_deg, 5);
-    Serial.print("  bot_angle: ");
-    Serial.print(a, 5);
+//    Serial.print("   x: ");
+//    Serial.print(x, 2);
+//    Serial.print("   y: ");
+//    Serial.print(y, 2);
+//    Serial.print("  angle_deg: ");
+//    Serial.print(a_deg, 5);
+//    Serial.print("  bot_angle: ");
+//    Serial.print(a, 5);
     Serial.print("  Filtered angle: ");
-    Serial.print(a_filtered, 5);
-    Serial.print("  STATE: ");
-    Serial.println(state);
+    Serial.println(a_filtered, 5);
+//    Serial.print("  STATE: ");
+//    Serial.print(state);
+//    Serial.println();
 }
 
 ///END OF MAIN
@@ -541,12 +548,17 @@ void Odometry() {
   // Correct angle to starting position
   a = a - startingAngle;
 
-   //Filter Signal
-  if (millis() > flt_last_time + 2) {
+  // Filter Signal
+  if (millis() > flt_last_time + 1) {
     flt_last_time = millis();
-    a_filtered = a*flt_coeff[0] + flt_prev[0]*flt_coeff[1] + flt_prev[1]*flt_coeff[2] + flt_prev[2]*flt_coeff[3];
-    flt_prev[2] = flt_prev[1];
-    flt_prev[1] = flt_prev[0];
+    
+    a_filtered = a*flt_coeff[0];
+    for (int i = 0; i < 14; i++) {
+      a_filtered += flt_prev[i]*flt_coeff[i+1];
+    }
+    for (int i = 13; i > 0; i--) {
+      flt_prev[i] = flt_prev[i-1];
+    }
     flt_prev[0] = a;
   }
 
