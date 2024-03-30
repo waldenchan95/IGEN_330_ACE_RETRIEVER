@@ -62,9 +62,9 @@ double flt_coeff[15] { 0.252, 0.1894, 0.1423, 0.1069, 0.0804, 0.0604, 0.0454, 0.
 double flt_prev[14] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 unsigned long flt_last_time = 0;
 // Hard-iron calibration settings
-// (13.72, -6.64, -46.90)
+// (0.20, -5.33, -30.06)
 const float hard_iron[3] = {
-  13.72,  -6.64,  -46.90
+  0.020,  -5.33,  -30.06
 };
 // Soft-iron calibration settings
 const float soft_iron[3][3] = {
@@ -110,8 +110,8 @@ const int baseSpeedMax = 180;
 // PID
 const double dt = 0.005; // (s) time between a_error updates (multiplied by 1000 to be used in millis()) 
 // Angle PID constants
-const double aK = 140/4; // MASTER GAIN rotation
-const double aKi = 120/4; // integral multiplier
+const double aK = 140; // MASTER GAIN rotation
+const double aKi = 120; // integral multiplier
 const double aKd = 1.6; // derivative multiplier
 // BaseSpeed PID constants
 const double dK = 60; // MASTER GAIN drive
@@ -400,11 +400,11 @@ void loop() {
 //    Serial.print(a_deg, 5);
 //    Serial.print("  bot_angle: ");
 //    Serial.print(a, 5);
-    Serial.print("  Filtered angle: ");
-    Serial.println(a_filtered, 5);
+//    Serial.print("  Filtered angle: ");
+    Serial.print(a_filtered, 5);
 //    Serial.print("  STATE: ");
 //    Serial.print(state);
-//    Serial.println();
+    Serial.println();
 }
 
 ///END OF MAIN
@@ -541,12 +541,12 @@ void Odometry() {
   }
   
   a = heading*PI/180;
-  // Convert heading to 0-2pi degrees
-  if (a < 0) {
-    a += 2*PI;
-  }
-  // Correct angle to starting position
-  a = a - startingAngle;
+//  // Convert heading to 0-2pi degrees
+//  if (a < 0) {
+//    a += 2*PI;
+//  }
+
+  //a = a - startingAngle;
 
   // Filter Signal
   if (millis() > flt_last_time + 1) {
