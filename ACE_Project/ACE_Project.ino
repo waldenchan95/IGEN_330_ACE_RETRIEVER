@@ -108,15 +108,16 @@ const long widestX = 126; // [cm] When ball is at farthest y, the widest x can b
 // Algorithm constants
 const int baseSpeedMax = 180;
 // PID
-const double dt = 0.005; // (s) time between a_error updates (multiplied by 1000 to be used in millis()) 
+const double dt = 0.001; // (s) time between a_error updates (multiplied by 1000 to be used in millis()) 
 // Angle PID constants
-const double aK = 140; // MASTER GAIN rotation
-const double aKi = 120; // integral multiplier
-const double aKd = 1.6; // derivative multiplier
+const double aK = 130; // MASTER GAIN rotation
+const double aKi = 450; // integral multiplier
+const double aKd = 10; // derivative multiplier
+bool first_time = 1; // This is used to run through the PID first time setting the prev_error and error to be the same and 0 so it doesnt freak out
 // BaseSpeed PID constants
-const double dK = 60; // MASTER GAIN drive
+const double dK = 40; // MASTER GAIN drive
 const double dKi = 34; // integral multiplier
-const double dKd = 2; // derivative multiplier
+const double dKd = 10; // derivative multiplier
 
 /// LOW_PASS FILTER CLASS
 template <int order> // order is 1 or 2
@@ -234,10 +235,12 @@ void loop() {
     /// STATEMACHINE
     switch(state) {
       case SETUP:
-        if (millis() > 600) { // give some time for odometry to read position
+        if (millis() > 300) { // give some time for odometry to read position
           nxt_state = WAIT;
           startingAngle = a;
           IntakeSpeed = 0;
+          last_time = millis();
+          first_time = 1;
         }
         else
           nxt_state = SETUP;
@@ -260,10 +263,16 @@ void loop() {
           nxt_state = GO_HOME;
         else
           nxt_state = WAIT;
-      
+        
         // Maintain starting angle.
         // This will also revert the robot back to the correct angle after coming home during the GO_HOME state
         a_error = -a_filtered;
+
+        if (first_time == 1) {
+          prev_a_error = a_error;
+          first_time = 0;
+        }
+        
         if (millis() > last_time + dt*1000) {
           a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, dt);
           last_time = millis();
@@ -459,7 +468,7 @@ void loop() {
     }
     state = nxt_state;
 
-    // Run Motors at whatever specified speed possibly 0
+    // Run Motors at whatever specified speed
     RMotor(conR, RightMotorSpeed);
     LMotor(conL, LeftMotorSpeed);
     IMotor(conI, IntakeSpeed);
@@ -488,7 +497,7 @@ void loop() {
 //    Serial.print("  bot_angle: ");
 //    Serial.print(a, 5);
 //    Serial.print("  Filtered angle: ");
-    Serial.print(a_filtered, 5);
+      Serial.print(a_filtered, 5);
 //    Serial.print("  STATE: ");
 //    Serial.print(state);
     Serial.println();
@@ -629,7 +638,13 @@ void Odometry() {
   
   a = heading*PI/180;
 
-  //a = a - startingAngle;
+  // Center compass to start position
+  a = a - startingAngle;
+  if (startingAngle > 0 && a < -PI) {
+    a = 2*PI + a;
+  } else if (startingAngle < 0 && a > PI) {
+    a = a - 2*PI;
+  }
 
   // Compute the filtered signal
   a_filtered = lp.filt(a);  
