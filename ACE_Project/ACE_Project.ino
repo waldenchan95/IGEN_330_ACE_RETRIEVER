@@ -461,16 +461,10 @@ void loop() {
     }
     state = nxt_state;
 
-    // Run Motors at whatever specified speed
-    if (millis() < 3000) {
-      RMotor(conR, 0);
-      LMotor(conL, 0);
-      IMotor(conI, 0);
-    } else {
-      RMotor(conR, RightMotorSpeed);
-      LMotor(conL, LeftMotorSpeed);
-      IMotor(conI, IntakeSpeed);
-    }
+    RMotor(conR, RightMotorSpeed);
+    LMotor(conL, LeftMotorSpeed);
+    IMotor(conI, IntakeSpeed);
+ 
 
     /// PRINT Data
 //    Serial.print("xscreenpos: ");
@@ -487,10 +481,10 @@ void loop() {
 //    Serial.print(RightMotorSpeed);
 //    Serial.print("   L: ");
 //    Serial.print(LeftMotorSpeed);
-    Serial.print("   x: ");
-    Serial.print(x, 2);
-    Serial.print("   y: ");
-    Serial.print(y, 2);
+//    Serial.print("   x: ");
+//    Serial.print(x, 2);
+//    Serial.print("   y: ");
+//    Serial.print(y, 2);
 //    Serial.print("  angle_deg: ");
 //    Serial.print(a_deg, 5);
 //    Serial.print("  bot_angle: ");
@@ -638,12 +632,12 @@ void Odometry() {
   a = heading*PI/180;
 
   // Center compass to start position
-  a = a - startingAngle;
-  if (startingAngle > 0 && a < -PI) {
-    a = 2*PI + a;
-  } else if (startingAngle < 0 && a > PI) {
-    a = a - 2*PI;
-  }
+//  a = a - startingAngle;
+//  if (startingAngle > 0 && a < -PI) {
+//    a = 2*PI + a;
+//  } else if (startingAngle < 0 && a > PI) {
+//    a = a - 2*PI;
+//  }
 
   // Compute the filtered signal
   a_filtered = lp.filt(a);  
