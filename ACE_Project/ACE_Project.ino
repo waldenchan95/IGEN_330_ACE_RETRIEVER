@@ -13,7 +13,7 @@ Pixy2 pixy;
 
 // OVERALL CONTROL
 // States
-enum States { SETUP, WAIT, GOTO_PT, GOTO_BALL, GET_BALL, CHK_DONE, GO_HOME, HOLD } state, nxt_state;
+enum States { SETUP, ANGLE_INIT_DELAY, WAIT, GOTO_PT, GOTO_BALL, GET_BALL, CHK_DONE, GO_HOME, HOLD } state, nxt_state;
 // Commands
 enum Commands { wait, start, e_stop, e_home } command;
 // Controlled externally: tells robot if there are any more balls it must go to
@@ -57,6 +57,7 @@ double a_filtered = 0; //(rad) angle after it has been filtered
 double a_deg = 0; //(deg) Used purely for troubleshooting
 // Magnetometer
 double startingAngle = 0; // This angle is whichever way the robot is facing upon startup which becomes the origin angle
+unsigned long startingAngle_init_time = 0;
 // WSF Filter
 double flt_coeff[15] { 0.252, 0.1894, 0.1423, 0.1069, 0.0804, 0.0604, 0.0454, 0.0341, 0.0256, 0.0193, 0.0145, 0.0109, 0.0082, 0.0061, 0.0046 };
 double flt_prev[14] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -235,13 +236,23 @@ void loop() {
     switch(state) {
       case SETUP:
         if (millis() > 300) { // give some time for odometry to read position
-          nxt_state = WAIT;
+          nxt_state = ANGLE_INIT_DELAY;
           startingAngle = a;
           IntakeSpeed = 0;
-          last_time = millis();
+          startingAngle_init_time = millis();
         }
-        else
+        else {
           nxt_state = SETUP;
+        }
+          
+      break;
+      case ANGLE_INIT_DELAY:
+        if(millis() < startingAngle_init_time + 300){
+            nxt_state = ANGLE_INIT_DELAY;
+        } else {
+          nxt_state = WAIT;
+        }
+        last_time = millis();
       break;
       case WAIT:
         // Wait for signal
@@ -633,12 +644,12 @@ void Odometry() {
   a = heading*PI/180;
 
   // Center compass to start position 
-//  a = a - startingAngle;
-//  if (startingAngle > 0 && a < -PI) {
-//    a = 2*PI + a;
-//  } else if (startingAngle < 0 && a > PI) {
-//    a = a - 2*PI;
-//  }
+  a = a - startingAngle;
+  if (startingAngle > 0 && a < -PI) {
+    a = 2*PI + a;
+  } else if (startingAngle < 0 && a > PI) {
+    a = a - 2*PI;
+  }
 
   // Compute the filtered signal
   a_filtered = lp.filt(a);  
