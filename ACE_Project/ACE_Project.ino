@@ -111,7 +111,7 @@ const int baseSpeedMax = 180;
 const double dt = 0.001; // (s) time between a_error updates (multiplied by 1000 to be used in millis()) 
 // Angle PID constants
 const double aK = 130; // MASTER GAIN rotation
-const double aKi = 450; // integral multiplier
+const double aKi = 450*0; // integral multiplier
 const double aKd = 10; // derivative multiplier
 // BaseSpeed PID constants
 const double dK = 40; // MASTER GAIN drive
@@ -631,13 +631,13 @@ void Odometry() {
   
   a = heading*PI/180;
 
-  // Center compass to start position
-//  a = a - startingAngle;
-//  if (startingAngle > 0 && a < -PI) {
-//    a = 2*PI + a;
-//  } else if (startingAngle < 0 && a > PI) {
-//    a = a - 2*PI;
-//  }
+  // Center compass to start position 
+  a = a - startingAngle;
+  if (startingAngle > 0 && a < -PI) {
+    a = 2*PI + a;
+  } else if (startingAngle < 0 && a > PI) {
+    a = a - 2*PI;
+  }
 
   // Compute the filtered signal
   a_filtered = lp.filt(a);  
