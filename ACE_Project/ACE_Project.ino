@@ -113,7 +113,6 @@ const double dt = 0.001; // (s) time between a_error updates (multiplied by 1000
 const double aK = 130; // MASTER GAIN rotation
 const double aKi = 450; // integral multiplier
 const double aKd = 10; // derivative multiplier
-bool first_time = 1; // This is used to run through the PID first time setting the prev_error and error to be the same and 0 so it doesnt freak out
 // BaseSpeed PID constants
 const double dK = 40; // MASTER GAIN drive
 const double dKi = 34; // integral multiplier
@@ -240,7 +239,6 @@ void loop() {
           startingAngle = a;
           IntakeSpeed = 0;
           last_time = millis();
-          first_time = 1;
         }
         else
           nxt_state = SETUP;
@@ -267,11 +265,6 @@ void loop() {
         // Maintain starting angle.
         // This will also revert the robot back to the correct angle after coming home during the GO_HOME state
         a_error = -a_filtered;
-
-        if (first_time == 1) {
-          prev_a_error = a_error;
-          first_time = 0;
-        }
         
         if (millis() > last_time + dt*1000) {
           a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, dt);
@@ -469,9 +462,15 @@ void loop() {
     state = nxt_state;
 
     // Run Motors at whatever specified speed
-    RMotor(conR, RightMotorSpeed);
-    LMotor(conL, LeftMotorSpeed);
-    IMotor(conI, IntakeSpeed);
+    if (millis() < 3000) {
+      RMotor(conR, 0);
+      LMotor(conL, 0);
+      IMotor(conI, 0);
+    } else {
+      RMotor(conR, RightMotorSpeed);
+      LMotor(conL, LeftMotorSpeed);
+      IMotor(conI, IntakeSpeed);
+    }
 
     /// PRINT Data
 //    Serial.print("xscreenpos: ");
@@ -488,10 +487,10 @@ void loop() {
 //    Serial.print(RightMotorSpeed);
 //    Serial.print("   L: ");
 //    Serial.print(LeftMotorSpeed);
-//    Serial.print("   x: ");
-//    Serial.print(x, 2);
-//    Serial.print("   y: ");
-//    Serial.print(y, 2);
+    Serial.print("   x: ");
+    Serial.print(x, 2);
+    Serial.print("   y: ");
+    Serial.print(y, 2);
 //    Serial.print("  angle_deg: ");
 //    Serial.print(a_deg, 5);
 //    Serial.print("  bot_angle: ");
