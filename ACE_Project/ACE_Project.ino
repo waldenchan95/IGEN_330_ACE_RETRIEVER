@@ -1,5 +1,4 @@
 // NEED TO ADD:
-// startup angle set to 0 and communicated with external system; 
 // Once odometry is tested: point target error, hold angle during WAIT state
 
 #include <Pixy2.h>
@@ -14,29 +13,29 @@ Pixy2 pixy;
 
 // OVERALL CONTROL
 // States
-enum States { SETUP, WAIT, GOTO_PT, GOTO_BALL, GET_BALL, CHK_DONE, GO_HOME, HOLD } state, nxt_state;
+enum States { SETUP, ANGLE_INIT_DELAY, WAIT, GOTO_PT, GOTO_BALL, GET_BALL, CHK_DONE, GO_HOME, HOLD } state, nxt_state;
 // Commands
-enum Commands { start, e_stop, e_home } command;
+enum Commands { wait, start, e_stop, e_home } command;
 // Controlled externally: tells robot if there are any more balls it must go to
-bool balls = 0;
+bool pt_valid = 0;
 
 // Variables
 unsigned long init_ball_seen_time; // When robot sees ball in pixy it waits a short time to determine if the object is consistent before going
 
 // Odometry Definitions
 #define CLKS_PER_SAMPLE 4 // pure counts of encoder
-#define DIST_PER_CLK 0.005984734 // 3inch wheel, 40 clicks per rotation (m)
+#define DIST_PER_CLK 0.005984734*240/207 // calibrated real world (m)
 
 // PINS
 // Motor
 const int conR = 6; // all should be on timer 5 of the mega
-const int conL = 7; // 
+const int conL = 7; // Yellow
 const int conI = 44; // 
 // Rotary Encoder Module connections
-const int rDT = 5;    // DATA signal 
-const int rCLK = 19;    // CLOCK signal
-const int lDT = 4;    // DATA signal 
-const int lCLK = 18;    // CLOCK signal
+const int rDT = 5;    // DATA signal  // ORnge
+const int rCLK = 19;    // CLOCK signal //green
+const int lDT = 4;    // DATA signal // ornGE
+const int lCLK = 18;    // CLOCK signal //green
 
 // Motor PWM Frequency
 const int input_frequency = 150; // do not change
@@ -53,12 +52,20 @@ int lcounter = 0;
 // Position variables
 double x = 0; //(m)
 double y = 0; //(m)
-double a = 0; //(rad)
+double a = 0; //(rad) // raw angle data
+double a_filtered = 0; //(rad) angle after it has been filtered
+double a_deg = 0; //(deg) Used purely for troubleshooting
 // Magnetometer
 double startingAngle = 0; // This angle is whichever way the robot is facing upon startup which becomes the origin angle
+unsigned long startingAngle_init_time = 0;
+// WSF Filter
+double flt_coeff[15] { 0.252, 0.1894, 0.1423, 0.1069, 0.0804, 0.0604, 0.0454, 0.0341, 0.0256, 0.0193, 0.0145, 0.0109, 0.0082, 0.0061, 0.0046 };
+double flt_prev[14] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+unsigned long flt_last_time = 0;
 // Hard-iron calibration settings
+// (0.20, -5.33, -30.06)
 const float hard_iron[3] = {
-  -12.04,  -15.64,  13.31
+  0.020,  -5.33,  -30.06
 };
 // Soft-iron calibration settings
 const float soft_iron[3][3] = {
@@ -72,9 +79,14 @@ static float heading = 0;
 // pixy variables
 int x_pos_ooi = 158; //x position of object of interest
 int y_pos_ooi = 316; //y position of object of interest
-// Ball in Camera Positional variables
+// Ball in Camera Positional variables (Mapped to real world position)
 double x_ball_pos = 0;
 double y_ball_pos = 0;
+// Target Point (populated by external system)
+double x_target = 3; // W/O external input we can hardcode a position and try to go there
+double y_target = 2;
+double x_error; // components of positional error only used in intermediate steps
+double y_error;
 // control variables
 double a_error = 0; // a_error of offset angle 
 double prev_a_error = 0; // previous out for use with derivative controller (with compass this will get better)
@@ -95,19 +107,107 @@ const long closestY = 20; // [cm] Closest physical distance the ball is from the
 const long farthestY = 162; // [cm] Farthest distance ball is in camera view
 const long widestX = 126; // [cm] When ball is at farthest y, the widest x can be from center
 // Algorithm constants
+const int baseSpeedMax = 180;
 // PID
-const double dt = 0.005; // (s) time between a_error updates (multiplied by 1000 to be used in millis()) 
+const double dt = 0.001; // (s) time between a_error updates (multiplied by 1000 to be used in millis()) 
 // Angle PID constants
-const double aK = 140; // MASTER GAIN rotation
-const double aKi = 120; // integral multiplier
-const double aKd = 1.6; // derivative multiplier
+const double aK = 130; // MASTER GAIN rotation
+const double aKi = 450*0; // integral multiplier
+const double aKd = 10*0; // derivative multiplier
 // BaseSpeed PID constants
-const double dK = 60; // MASTER GAIN drive
+const double dK = 40; // MASTER GAIN drive
 const double dKi = 34; // integral multiplier
-const double dKd = 2; // derivative multiplier
+const double dKd = 10; // derivative multiplier
+
+/// LOW_PASS FILTER CLASS
+template <int order> // order is 1 or 2
+class LowPass
+{
+  private:
+    float a[order];
+    float b[order+1];
+    float omega0;
+    float dt;
+    bool adapt;
+    float tn1 = 0;
+    float x[order+1]; // Raw values
+    float y[order+1]; // Filtered values
+
+  public:  
+    LowPass(float f0, float fs, bool adaptive){
+      // f0: cutoff frequency (Hz)
+      // fs: sample frequency (Hz)
+      // adaptive: boolean flag, if set to 1, the code will automatically set
+      // the sample frequency based on the time history.
+      
+      omega0 = 6.28318530718*f0;
+      dt = 1.0/fs;
+      adapt = adaptive;
+      tn1 = -dt;
+      for(int k = 0; k < order+1; k++){
+        x[k] = 0;
+        y[k] = 0;        
+      }
+      setCoef();
+    }
+
+    void setCoef(){
+      if(adapt){
+        float t = micros()/1.0e6;
+        dt = t - tn1;
+        tn1 = t;
+      }
+      
+      float alpha = omega0*dt;
+      if(order==1){
+        a[0] = -(alpha - 2.0)/(alpha+2.0);
+        b[0] = alpha/(alpha+2.0);
+        b[1] = alpha/(alpha+2.0);        
+      }
+      if(order==2){
+        float alphaSq = alpha*alpha;
+        float beta[] = {1, sqrt(2), 1};
+        float D = alphaSq*beta[0] + 2*alpha*beta[1] + 4*beta[2];
+        b[0] = alphaSq/D;
+        b[1] = 2*b[0];
+        b[2] = b[0];
+        a[0] = -(2*alphaSq*beta[0] - 8*beta[2])/D;
+        a[1] = -(beta[0]*alphaSq - 2*beta[1]*alpha + 4*beta[2])/D;      
+      }
+    }
+
+    float filt(float xn){
+      // Provide me with the current raw value: x
+      // I will give you the current filtered value: y
+      if(adapt){
+        setCoef(); // Update coefficients if necessary      
+      }
+      y[0] = 0;
+      x[0] = xn;
+      // Compute the filtered values
+      for(int k = 0; k < order; k++){
+        y[0] += a[k]*y[k+1] + b[k]*x[k];
+      }
+      y[0] += b[order]*x[order];
+
+      // Save the historical values
+      for(int k = order; k > 0; k--){
+        y[k] = y[k-1];
+        x[k] = x[k-1];
+      }
+  
+      // Return the filtered value    
+      return y[0];
+    }
+};
+
+/// END OF LOW_PASS FILTER CLASS
 
 //Create instance of magnetometer
 Adafruit_LIS3MDL lis3mdl;
+
+// Filter instance
+LowPass<2> lp(3,1e3,true);
 
 void setup() {
   // initialize output pins
@@ -125,6 +225,7 @@ void setup() {
   StartOdometry();
   // First state
   state = SETUP;
+  command = wait;
 }
 
 void loop() {
@@ -134,12 +235,24 @@ void loop() {
     /// STATEMACHINE
     switch(state) {
       case SETUP:
-        if (millis() > 1000) { // give some time for odometry to read position
-          nxt_state = WAIT;
-          startingAngle = a;
+        if (millis() > 300) { // give some time for odometry to read position
+          nxt_state = ANGLE_INIT_DELAY;
+          startingAngle = a_filtered;
+          IntakeSpeed = 0;
+          startingAngle_init_time = millis();
         }
-        else
+        else {
           nxt_state = SETUP;
+        }
+          
+      break;
+      case ANGLE_INIT_DELAY:
+        if(millis() < startingAngle_init_time + 300){
+            nxt_state = ANGLE_INIT_DELAY;
+        } else {
+          nxt_state = WAIT;
+        }
+        last_time = millis();
       break;
       case WAIT:
         // Wait for signal
@@ -148,7 +261,7 @@ void loop() {
           init_ball_seen_time = millis();
           prev_a_error = 0;
           prev_d_error = 0;
-          a_error = 0;
+          //a_error = 0;
           d_error = 0;
           last_time = millis();
           RightMotorSpeed = 0;
@@ -159,10 +272,11 @@ void loop() {
           nxt_state = GO_HOME;
         else
           nxt_state = WAIT;
-      
+        
         // Maintain starting angle.
         // This will also revert the robot back to the correct angle after coming home during the GO_HOME state
-        a_error = a;
+        a_error = -a_filtered;
+        
         if (millis() > last_time + dt*1000) {
           a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, dt);
           last_time = millis();
@@ -171,7 +285,34 @@ void loop() {
         RightMotorSpeed = -a_out;
         LeftMotorSpeed = a_out;
       break;
-      case GOTO_PT:
+      case GOTO_PT:   
+        /// EXTERNAL CAMERA/POINT TARGET
+        IntakeSpeed = 0; // DO NOT Run intake when ball NOT in view
+
+        x_error = x_target - x;
+        y_error = y_target - y;
+        d_error = sqrt(pow(x_error, 2) + pow(y_error, 2));
+        a_error = atan(y_error/x_error) - a_filtered;
+        
+        /// APPROACH TARGET
+        // Check control feedback
+        if (millis() > last_time + dt*1000) {
+          a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, dt);
+          baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, dt);
+          last_time = millis();
+        }
+        
+        if (baseSpeed > baseSpeedMax) {
+          baseSpeed = baseSpeedMax;
+        }
+        // Set motor speeds
+        RightMotorSpeed = baseSpeed - a_out;
+        LeftMotorSpeed = baseSpeed + a_out;
+        
+        // State logic
+        if (!pt_valid) {
+          nxt_state = GOTO_BALL;
+        }
         pixy.ccc.getBlocks();
         if (pixy.ccc.numBlocks && millis() > init_ball_seen_time + 500) {
             nxt_state = GOTO_BALL;
@@ -183,6 +324,8 @@ void loop() {
             RightMotorSpeed = 0;
             LeftMotorSpeed = 0;
             IntakeSpeed = 0;
+        } else if(x_error < 0.40 && y_error < 0.40) {
+          nxt_state = GOTO_BALL;
         } else {
           init_ball_seen_time = millis(); // when ball is seen this will be the initial time it was seen
           nxt_state = GOTO_PT;
@@ -192,23 +335,6 @@ void loop() {
         } else if (command == e_home) {
           nxt_state = GO_HOME;
         }
-        /// EXTERNAL CAMERA/POINT TARGET
-        IntakeSpeed = 0; // DO NOT Run intake when ball NOT in view
-              // Do things based on external camera
-              // Set targets:
-              // Overwrite camera-based ball positions and angle error with other points and angles for robot to go to
-              // Compute angle between bot and target, target 0
-              // Compute distance from point, target 0
-        /// APPROACH TARGET
-        // Check control feedback
-        if (millis() > last_time + dt*1000) {
-          a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, dt);
-          baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, dt);
-          last_time = millis();
-        }
-        // Set motor speeds
-        RightMotorSpeed = baseSpeed - a_out;
-        LeftMotorSpeed = baseSpeed + a_out;
       break;
       case GOTO_BALL:
         IntakeSpeed = 40; // Run intake when ball in view
@@ -251,6 +377,10 @@ void loop() {
           baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, dt);
           last_time = millis();
         }
+
+        if (baseSpeed > baseSpeedMax) {
+          baseSpeed = baseSpeedMax;
+        }
         // Set motor speeds
         RightMotorSpeed = baseSpeed - a_out;
         LeftMotorSpeed = baseSpeed + a_out;
@@ -276,7 +406,7 @@ void loop() {
         IntakeSpeed = 40;
       break;
       case CHK_DONE:
-        if (balls = 0)
+        if (pt_valid == 0)
           nxt_state = GO_HOME;
         else
           nxt_state = GOTO_PT;
@@ -286,6 +416,8 @@ void loop() {
           nxt_state = HOLD;
         } else if (command == e_home) {
           nxt_state = GO_HOME;
+        } else if (x_error < 0.40 && y_error < 0.40) {
+          nxt_state = WAIT;
         }
         nxt_state = WAIT;
         prev_a_error = 0;
@@ -296,13 +428,32 @@ void loop() {
         RightMotorSpeed = 0;
         LeftMotorSpeed = 0;
         IntakeSpeed = 0;
-        // will go home
-        // Will check if near enough to HOME and then go to WAIT
+        
+        // Set target as 0, 0 and go home
+        x_error = 0 - x;
+        y_error = 0 - y;
+        d_error = sqrt(pow(x_error, 2) + pow(y_error, 2));
+        a_error = atan(y_error/x_error) - a_filtered;
+        
+        /// APPROACH TARGET
+        // Check control feedback
+        if (millis() > last_time + dt*1000) {
+          a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, dt);
+          baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, dt);
+          last_time = millis();
+        }
+        
+        if (baseSpeed > baseSpeedMax) {
+          baseSpeed = baseSpeedMax;
+        }
+        // Set motor speeds
+        RightMotorSpeed = baseSpeed - a_out;
+        LeftMotorSpeed = baseSpeed + a_out;
       break;
       case HOLD:
-        if (command = e_stop) {
+        if (command == e_stop) {
           nxt_state = HOLD;
-        } else if (command = e_home) {
+        } else if (command == e_home) {
           nxt_state = GO_HOME;
         } else
           nxt_state = WAIT;
@@ -321,10 +472,10 @@ void loop() {
     }
     state = nxt_state;
 
-    // Run Motors at whatever specified speed possibly 0
     RMotor(conR, RightMotorSpeed);
     LMotor(conL, LeftMotorSpeed);
     IMotor(conI, IntakeSpeed);
+ 
 
     /// PRINT Data
 //    Serial.print("xscreenpos: ");
@@ -341,14 +492,21 @@ void loop() {
 //    Serial.print(RightMotorSpeed);
 //    Serial.print("   L: ");
 //    Serial.print(LeftMotorSpeed);
-    Serial.print("   x: ");
-    Serial.print(x);
-    Serial.print("   y: ");
-    Serial.print(y);
-    Serial.print("  angle: ");
-    Serial.print(a);
-    Serial.print("  STATE: ");
-    Serial.println(state);
+//    Serial.print("   x: ");
+//    Serial.print(x, 2);
+//    Serial.print("   y: ");
+//    Serial.print(y, 2);
+//    Serial.print("  angle_deg: ");
+//    Serial.print(a_deg, 5);
+//    Serial.print("  bot_angle: ");
+//    Serial.print(a, 5);
+//    Serial.print("  Filtered angle: ");
+//      Serial.print(a_filtered, 5);
+//      Serial.println(a_error);
+Serial.println(a_out);
+//    Serial.print("  STATE: ");
+//    Serial.print(state);
+    Serial.println();
 }
 
 ///END OF MAIN
@@ -479,20 +637,44 @@ void Odometry() {
   // Calculate angle for heading, assuming board is parallel to
   // the ground and  Y points toward heading.
   heading = -1.0 * (atan2(mag_data[0], mag_data[1])*180)/PI;
-  a = heading/180*PI;
-  // Correct angle to starting position
-  a = a - startingAngle;
-  // Convert heading to 0-2pi degrees
-  if (a < 0) {
-    a += 2*PI;
+  a_deg = heading; // Saving the magnetic heading in degrees for troubleshooting
+  if (a_deg < 0) {
+    a_deg += 360;
   }
   
+  a = heading*PI/180;
+
+  // Center compass to start position 
+  a = a - startingAngle;
+  if (startingAngle > 0 && a < -PI) {
+    a = 2*PI + a;
+  } else if (startingAngle < 0 && a > PI) {
+    a = a - 2*PI;
+  }
+
+  // Compute the filtered signal
+  a_filtered = lp.filt(a);  
+  
+//  // WSF Filter Signal
+//  if (millis() > flt_last_time + 1) {
+//    flt_last_time = millis();
+//    
+//    a_filtered = a*flt_coeff[0];
+//    for (int i = 0; i < 14; i++) {
+//      a_filtered += flt_prev[i]*flt_coeff[i+1];
+//    }
+//    for (int i = 13; i > 0; i--) {
+//      flt_prev[i] = flt_prev[i-1];
+//    }
+//    flt_prev[0] = a;
+//  }
+
   if (abs(rcounter) > CLKS_PER_SAMPLE || abs(lcounter) > CLKS_PER_SAMPLE) {
     double rdistance = rcounter * DIST_PER_CLK;
     double ldistance = lcounter * DIST_PER_CLK;
     double dd = (rdistance + ldistance) / 2.0;
-    double dx = cos(a) * dd;
-    double dy = sin(a) * dd;
+    double dx = cos(a_filtered) * dd;
+    double dy = sin(a_filtered) * dd;
     x = x + dx;
     y = y + dy;
     
