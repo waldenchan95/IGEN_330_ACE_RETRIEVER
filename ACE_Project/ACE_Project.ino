@@ -111,13 +111,17 @@ const long widestX = 126; // [cm] When ball is at farthest y, the widest x can b
 const int baseSpeedMax = 180;
 // PID
 const double PIDdt = 10; // (ms) time between a_error updates (multiplied by 1000 to be used in millis()) 
-// Angle PID constants
-const double aK = 130; // MASTER GAIN rotation
-const double aKi = 45*0; // integral multiplier
-const double aKd = 100; // derivative multiplier
+// Camera Angle PID constants
+const double aK = 360; // MASTER GAIN rotation
+const double aKi = 45; // integral multiplier
+const double aKd = 50; // derivative multiplier
+// Compass Angle PID constants
+const double cK = 72; // MASTER GAIN rotation
+const double cKi = 5; // integral multiplier
+const double cKd = 5; // derivative multiplier
 // BaseSpeed PID constants
-const double dK = 15; // MASTER GAIN drive
-const double dKi = 34; // integral multiplier
+const double dK = 86; // MASTER GAIN drive
+const double dKi = 50; // integral multiplier
 const double dKd = 10; // derivative multiplier
 
 /// LOW_PASS FILTER CLASS
@@ -227,7 +231,7 @@ void setup() {
   StartOdometry();
   
   // ROBOT MODE (use without external input to change what robot does)
-  state = GOTO_BALL;
+  state = SETUP;
   command = wait;
   pt_valid = 0;
 }
@@ -324,7 +328,7 @@ void loop() {
         
         pixy.ccc.getBlocks();
 
-        if (!pixy.ccc.numBlocks && millis() > init_ball_lost_time + 300) {
+        if (!pixy.ccc.numBlocks && millis() > init_ball_lost_time + 500) {
           nxt_state = GET_BALL;
           init_ball_seen_time = millis();
         } else {
@@ -353,13 +357,19 @@ void loop() {
         y_ball_pos = y_ball_pos / 100;
         x_ball_pos = x_ball_pos / 100;
     
-        // Set error with target of 0
-        d_error = y_ball_pos;
-        a_error = lp_camera.filt(atan(x_ball_pos/y_ball_pos));
         if (!pixy.ccc.numBlocks) {
           a_error = 0;
           d_error = 0;
+          prev_a_error = 0;
+          prev_d_error = 0;
+        } else {
+            // Set error with target of 0
+          d_error = y_ball_pos;
+          double temp_a_error = atan(x_ball_pos/y_ball_pos);
+          a_error = temp_a_error;
+          //a_error = lp_camera.filt(temp_a_error);
         }
+        
         nxt_state = GOTO_BALL; // this is here to stay in this state indefinetly for now
       break;
       case GET_BALL:
@@ -374,12 +384,10 @@ void loop() {
         else
           nxt_state = CHK_DONE;
         prev_a_error = 0;
-        prev_d_error = 0;
+        prev_d_error = 0.5;
         a_error = 0;
-        d_error = 0;
+        d_error = 0.5;
         last_time = millis();
-        RightMotorSpeed = 0.4*dK;
-        LeftMotorSpeed = 0.4*dK;
         IntakeSpeed = 40;
       break;
       case CHK_DONE:
@@ -433,25 +441,33 @@ void loop() {
       break;
     }
     state = nxt_state;
-
+    
     /// PID TO TARGET and SET MOTOR SPEEDS
-    if (millis() > last_time + PIDdt*1000) {
-      a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, PIDdt);
-      baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, PIDdt);
+    if (millis() > last_time + PIDdt) {
+      if(state != GOTO_BALL) {
+        a_out = PID(a_error, prev_a_error, a_integral, cK, cKi, cKd, PIDdt/1000);
+      } else {
+        a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, PIDdt/1000);
+      }
+      
+      baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, PIDdt/1000);
       last_time = millis();
     } 
     
     if (baseSpeed > baseSpeedMax) {
       baseSpeed = baseSpeedMax;
     }
-
-    if (!pixy.ccc.numBlocks) {
-      baseSpeed = 0;
-    }
+    
+    //baseSpeed = 0; //for testing
     // Set motor speeds
     RightMotorSpeed = baseSpeed - a_out;
     LeftMotorSpeed = baseSpeed + a_out;
-    
+
+    if (state == GOTO_BALL && !pixy.ccc.numBlocks) {
+      RightMotorSpeed = 0;
+      LeftMotorSpeed = 0;
+    }
+
     RMotor(conR, RightMotorSpeed);
     LMotor(conL, LeftMotorSpeed);
     IMotor(conI, IntakeSpeed);
@@ -468,28 +484,28 @@ void loop() {
 //    Serial.print(x_pos);
 //    Serial.print("     Angle ofst from target: ");
 //    Serial.print(a_error);
-    Serial.print("  R: ");
-    Serial.print(RightMotorSpeed);
-    Serial.print("   L: ");
-    Serial.print(LeftMotorSpeed);
-//    Serial.print("   x: ");
-//    Serial.print(x, 2);
-//    Serial.print("   y: ");
-//    Serial.print(y, 2);
+//    Serial.print("  R: ");
+//    Serial.print(RightMotorSpeed);
+//    Serial.print("   L: ");
+//    Serial.print(LeftMotorSpeed);
+    Serial.print("   x: ");
+    Serial.print(x, 2);
+    Serial.print("   y: ");
+    Serial.print(y, 2);
 //    Serial.print("  angle_deg: ");
 //    Serial.print(a_deg, 5);
 //    Serial.print("  bot_angle: ");
 //    Serial.print(a, 5);
-//    Serial.print("  Filtered angle: ");
-//      Serial.print(a_filtered, 5);
-//      Serial.print("d error:  ");
-//      Serial.print(d_error);
+    Serial.print("  Filtered angle: ");
+      Serial.print(a_filtered, 5);
+      Serial.print("d error:  ");
+      Serial.print(d_error);
 //      Serial.print("  BASESPEED  ");
 //      Serial.print(baseSpeed);
 //      Serial.print("   Angle error:  ");
 //      Serial.print(a_error);
 //      Serial.print("  A out:  ");
-//      Serial.print(a_out);
+      //Serial.print(a_out);
 //    Serial.print("  STATE: ");
 //    Serial.print(state);
     Serial.println();
