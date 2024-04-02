@@ -109,13 +109,13 @@ const long widestX = 126; // [cm] When ball is at farthest y, the widest x can b
 // Algorithm constants
 const int baseSpeedMax = 180;
 // PID
-const double dt = 0.001; // (s) time between a_error updates (multiplied by 1000 to be used in millis()) 
+const double PIDdt = 10; // (ms) time between a_error updates (multiplied by 1000 to be used in millis()) 
 // Angle PID constants
 const double aK = 130; // MASTER GAIN rotation
-const double aKi = 450; // integral multiplier
-const double aKd = 10; // derivative multiplier
+const double aKi = 45*0; // integral multiplier
+const double aKd = 100; // derivative multiplier
 // BaseSpeed PID constants
-const double dK = 40; // MASTER GAIN drive
+const double dK = 15; // MASTER GAIN drive
 const double dKi = 34; // integral multiplier
 const double dKd = 10; // derivative multiplier
 
@@ -224,7 +224,7 @@ void setup() {
   // Setup Odometry
   StartOdometry();
   // First state
-  state = SETUP;
+  state = GOTO_BALL;
   command = wait;
 }
 
@@ -277,8 +277,8 @@ void loop() {
         // This will also revert the robot back to the correct angle after coming home during the GO_HOME state
         a_error = -a_filtered;
         
-        if (millis() > last_time + dt*1000) {
-          a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, dt);
+        if (millis() > last_time + PIDdt*1000) {
+          a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, PIDdt);
           last_time = millis();
         }
         
@@ -296,9 +296,9 @@ void loop() {
         
         /// APPROACH TARGET
         // Check control feedback
-        if (millis() > last_time + dt*1000) {
-          a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, dt);
-          baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, dt);
+        if (millis() > last_time + PIDdt*1000) {
+          a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, PIDdt);
+          baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, PIDdt);
           last_time = millis();
         }
         
@@ -337,7 +337,7 @@ void loop() {
         }
       break;
       case GOTO_BALL:
-        IntakeSpeed = 40; // Run intake when ball in view
+        IntakeSpeed = 60; // Run intake when ball in view
         
         pixy.ccc.getBlocks();
         if (pixy.ccc.numBlocks) {
@@ -346,6 +346,7 @@ void loop() {
           nxt_state = GET_BALL;
           init_ball_seen_time = millis();
         }
+        //
         if (command == e_stop) {
           nxt_state = HOLD;
         } else if (command == e_home) {
@@ -367,23 +368,37 @@ void loop() {
         x_ball_pos = x_ball_pos / 100;
     
         // Set error with target of 0
-        a_error = atan(x_ball_pos/y_ball_pos);
-        d_error = y_ball_pos;
-        
+
+        if (!pixy.ccc.numBlocks) {
+          a_error = 0;
+          d_error = 0;
+        } else {
+          a_error = atan(x_ball_pos/y_ball_pos);
+          d_error = y_ball_pos;
+        }
+
+        baseSpeed = 0;
         /// APPROACH TARGET
         // Check control feedback
-        if (millis() > last_time + dt*1000) {
-          a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, dt);
-          baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, dt);
+        if (millis() > last_time + PIDdt) {
+          a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, PIDdt/1000);
+          baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, PIDdt/1000);
           last_time = millis();
         }
 
         if (baseSpeed > baseSpeedMax) {
           baseSpeed = baseSpeedMax;
         }
+
+        if (!pixy.ccc.numBlocks) {
+          baseSpeed = 0;
+        }
+        
         // Set motor speeds
         RightMotorSpeed = baseSpeed - a_out;
         LeftMotorSpeed = baseSpeed + a_out;
+
+        nxt_state = GOTO_BALL;
       break;
       case GET_BALL:
         if (command == e_stop) {
@@ -437,9 +452,9 @@ void loop() {
         
         /// APPROACH TARGET
         // Check control feedback
-        if (millis() > last_time + dt*1000) {
-          a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, dt);
-          baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, dt);
+        if (millis() > last_time + PIDdt*1000) {
+          a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, PIDdt);
+          baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, PIDdt);
           last_time = millis();
         }
         
@@ -502,11 +517,17 @@ void loop() {
 //    Serial.print(a, 5);
 //    Serial.print("  Filtered angle: ");
 //      Serial.print(a_filtered, 5);
-//      Serial.println(a_error);
-Serial.println(a_out);
+//      Serial.print("d error:  ");
+//      Serial.print(d_error);
+//      Serial.print("  BASESPEED  ");
+//      Serial.print(baseSpeed);
+//      Serial.print("   Angle error:  ");
+//      Serial.print(a_error);
+//      Serial.print("  A out:  ");
+//      Serial.print(a_out);
 //    Serial.print("  STATE: ");
 //    Serial.print(state);
-    Serial.println();
+//    Serial.println();
 }
 
 ///END OF MAIN
@@ -529,10 +550,10 @@ void set_pwm_frequency(int input_frequency) {
 }
 
 // PID controller
-double PID(double error, double &prev_error, double &integral, double Kp, double Ki, double Kd, double dt) {
+double PID(double error, double &prev_error, double &integral, double Kp, double Ki, double Kd, double PIDdt) {
   double proportional = error;
-  integral += error*dt;
-  double derivative = (error - prev_error) / dt;
+  integral += error*PIDdt;
+  double derivative = (error - prev_error) / PIDdt;
   prev_error = error;
   double out = Kp*proportional + Ki*integral + Kd*derivative;
   return out;
@@ -644,16 +665,16 @@ void Odometry() {
   
   a = heading*PI/180;
 
-  // Center compass to start position 
-  a = a - startingAngle;
-  if (startingAngle > 0 && a < -PI) {
-    a = 2*PI + a;
-  } else if (startingAngle < 0 && a > PI) {
-    a = a - 2*PI;
-  }
-
   // Compute the filtered signal
   a_filtered = lp.filt(a);  
+
+  // Center compass to start position 
+  a_filtered = a_filtered - startingAngle;
+  if (startingAngle > 0 && a_filtered < -PI) {
+    a_filtered = 2*PI + a_filtered;
+  } else if (startingAngle < 0 && a_filtered > PI) {
+    a_filtered = a_filtered - 2*PI;
+  }
   
 //  // WSF Filter Signal
 //  if (millis() > flt_last_time + 1) {
