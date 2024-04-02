@@ -20,3 +20,51 @@ void IMotor (int conI, int speed) {
   int adjSpeed = map(speed, -255, 255, PWM_LOW, PWM_HIGH);
  analogWrite(conI, adjSpeed);
 }
+
+//// Limits the maximum speed of the motors to a chosen cap
+//void LimitMotors(int maxSpeed) {
+//  
+//    //If the motors are > maxSpeed, or < -maxSpeed, we set speed to the abs(max)
+//
+//    // Right
+//    if(RightMotorSpeed > maxSpeed)
+//    {
+//      RightMotorSpeed = maxSpeed;
+//    }
+//   
+//    if(RightMotorSpeed > maxSpeed)
+//    {
+//      RightMotorSpeed = maxSpeed;
+//    }
+//
+//    if(RightMotorSpeed < -maxSpeed)
+//    {
+//      RightMotorSpeed = -maxSpeed;
+//    }
+//   
+//    if(RightMotorSpeed < -maxSpeed)
+//    {
+//      RightMotorSpeed = -maxSpeed;
+//    }
+//
+//    // Left
+//    if(LeftMotorSpeed > maxSpeed)
+//    {
+//      LeftMotorSpeed = maxSpeed;
+//    }
+//   
+//    if(LeftMotorSpeed > maxSpeed)
+//    {
+//      LeftMotorSpeed = maxSpeed;
+//    }
+//
+//    if(LeftMotorSpeed < -maxSpeed)
+//    {
+//      LeftMotorSpeed = -maxSpeed;
+//    }
+//   
+//    if(LeftMotorSpeed < -maxSpeed)
+//    {
+//      LeftMotorSpeed = -maxSpeed;
+//    }
+//}

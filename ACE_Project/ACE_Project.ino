@@ -244,7 +244,7 @@ void loop() {
         else {
           nxt_state = SETUP;
         }
-          
+
       break;
       case ANGLE_INIT_DELAY:
         if(millis() < startingAngle_init_time + 300){
@@ -276,14 +276,7 @@ void loop() {
         // Maintain starting angle.
         // This will also revert the robot back to the correct angle after coming home during the GO_HOME state
         a_error = -a_filtered;
-        
-        if (millis() > last_time + PIDdt*1000) {
-          a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, PIDdt);
-          last_time = millis();
-        }
-        
-        RightMotorSpeed = -a_out;
-        LeftMotorSpeed = a_out;
+        d_error = 0;
       break;
       case GOTO_PT:   
         /// EXTERNAL CAMERA/POINT TARGET
@@ -293,21 +286,6 @@ void loop() {
         y_error = y_target - y;
         d_error = sqrt(pow(x_error, 2) + pow(y_error, 2));
         a_error = atan(y_error/x_error) - a_filtered;
-        
-        /// APPROACH TARGET
-        // Check control feedback
-        if (millis() > last_time + PIDdt*1000) {
-          a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, PIDdt);
-          baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, PIDdt);
-          last_time = millis();
-        }
-        
-        if (baseSpeed > baseSpeedMax) {
-          baseSpeed = baseSpeedMax;
-        }
-        // Set motor speeds
-        RightMotorSpeed = baseSpeed - a_out;
-        LeftMotorSpeed = baseSpeed + a_out;
         
         // State logic
         if (!pt_valid) {
@@ -372,31 +350,11 @@ void loop() {
         if (!pixy.ccc.numBlocks) {
           a_error = 0;
           d_error = 0;
+          prev_d_error = 0;
         } else {
           a_error = atan(x_ball_pos/y_ball_pos);
           d_error = y_ball_pos;
         }
-
-        baseSpeed = 0;
-        /// APPROACH TARGET
-        // Check control feedback
-        if (millis() > last_time + PIDdt) {
-          a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, PIDdt/1000);
-          baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, PIDdt/1000);
-          last_time = millis();
-        }
-
-        if (baseSpeed > baseSpeedMax) {
-          baseSpeed = baseSpeedMax;
-        }
-
-        if (!pixy.ccc.numBlocks) {
-          baseSpeed = 0;
-        }
-        
-        // Set motor speeds
-        RightMotorSpeed = baseSpeed - a_out;
-        LeftMotorSpeed = baseSpeed + a_out;
 
         nxt_state = GOTO_BALL;
       break;
@@ -449,21 +407,6 @@ void loop() {
         y_error = 0 - y;
         d_error = sqrt(pow(x_error, 2) + pow(y_error, 2));
         a_error = atan(y_error/x_error) - a_filtered;
-        
-        /// APPROACH TARGET
-        // Check control feedback
-        if (millis() > last_time + PIDdt*1000) {
-          a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, PIDdt);
-          baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, PIDdt);
-          last_time = millis();
-        }
-        
-        if (baseSpeed > baseSpeedMax) {
-          baseSpeed = baseSpeedMax;
-        }
-        // Set motor speeds
-        RightMotorSpeed = baseSpeed - a_out;
-        LeftMotorSpeed = baseSpeed + a_out;
       break;
       case HOLD:
         if (command == e_stop) {
@@ -487,11 +430,28 @@ void loop() {
     }
     state = nxt_state;
 
+    /// PID TO TARGET and SET MOTOR SPEEDS
+    if (millis() > last_time + PIDdt*1000) {
+      a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, PIDdt);
+      baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, PIDdt);
+      last_time = millis();
+    } 
+    
+    if (baseSpeed > baseSpeedMax) {
+      baseSpeed = baseSpeedMax;
+    }
+
+    if (!pixy.ccc.numBlocks) {
+      baseSpeed = 0;
+    }
+    // Set motor speeds
+    RightMotorSpeed = baseSpeed - a_out;
+    LeftMotorSpeed = baseSpeed + a_out;
+    
     RMotor(conR, RightMotorSpeed);
     LMotor(conL, LeftMotorSpeed);
     IMotor(conI, IntakeSpeed);
  
-
     /// PRINT Data
 //    Serial.print("xscreenpos: ");
 //    Serial.print(x_pos_ooi);
