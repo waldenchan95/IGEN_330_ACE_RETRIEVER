@@ -1,10 +1,10 @@
 from ultralytics import YOLO
 import cv2
 import math 
-import homography as homo
+import opencv_camera.homography as homo
 import numpy as np
 
-import utils 
+import opencv_camera.utils as utils
 # start webcam
 cap = cv2.VideoCapture(0)
 # FRAME_WIDTH = 1280
@@ -12,7 +12,6 @@ cap = cv2.VideoCapture(0)
 
 # cap.set(cv2.CV_CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
 # cap.set(cv2.CV_CAP_PROP_FRAME_HEIGHT, FRAME_WIDTH)
-
 # model
 model = YOLO("yolo-Weights/yolov8n.pt")
 
@@ -30,15 +29,15 @@ classNames = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "trai
               ]
 
 #black bag is our virtual plane = 37 x 37, 0,0 is top left corner
-black_bag_coords = {'x1' : 0, 'y1': 0, 
+input_2d_plane = {'x1' : 0, 'y1': 0, 
                     'x2': 727, 'y2': 0, 
                     'x3': 0, 'y3': 727, 
                     'x4' : 727, 'y4': 727}
 
-black_bag_arr = [[black_bag_coords["x1"], black_bag_coords["y1"]], 
-                            [black_bag_coords["x2"], black_bag_coords["y2"]], 
-                            [black_bag_coords["x3"], black_bag_coords["y3"]],
-                            [black_bag_coords["x4"], black_bag_coords["y4"]]]
+input_2d_plane_array = [[input_2d_plane["x1"], input_2d_plane["y1"]], 
+                            [input_2d_plane["x2"], input_2d_plane["y2"]], 
+                            [input_2d_plane["x3"], input_2d_plane["y3"]],
+                            [input_2d_plane["x4"], input_2d_plane["y4"]]]
 
 def get_coords_from_boxes(box):
     coord_map = {}
@@ -50,8 +49,8 @@ def get_coords_from_boxes(box):
 #add the hand gestures here, for now just use input
 marked_area_of_interest = dict()
 # marked_area_of_interest = utils.find_area_of_interest()
-marked_area_of_interest = [[317, 170], [65, 322], [468, 452], [583, 216]]
-# marked_area_of_interest = utils.find_area_of_interest()
+# marked_area_of_interest = [[317, 170], [65, 322], [468, 452], [583, 216]]
+marked_area_of_interest = utils.find_area_of_interest()
 
 while True:
     success, img = cap.read()
@@ -59,7 +58,7 @@ while True:
     # when do we want to start using marking an image for coordinates
     for r in results:
         boxes = r.boxes
-        H_matrix = homo.create_homography_matrix(marked_area_of_interest, black_bag_arr)
+        H_matrix = homo.create_homography_matrix(marked_area_of_interest, input_2d_plane_array)
         pts = []
         for box in boxes:
             coord_map = get_coords_from_boxes(box)
@@ -102,10 +101,10 @@ while True:
             for pt in pts_transformed:
                 print(pt)
                 org = (int(float(pt[0])), int(float(pt[1])))
-                cv2.putText(img, str(pts_transformed), org, font, fontScale, color, thickness)
+                cv2.circle(img, str(pts_transformed), org, font, fontScale, color, thickness)
 
             # src = np.array(marked_area_of_interest)
-            # dst = np.array(black_bag_arr)
+            # dst = np.array(input_2d_plane_array)
             # plan_view = cv2.warpPerspective(src, H_matrix, (dst.shape[1], dst.shape[0]))
     cv2.imshow('Webcam', img) 
 
