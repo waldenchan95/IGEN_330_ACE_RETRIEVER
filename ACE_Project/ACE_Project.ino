@@ -134,7 +134,7 @@ class LowPass
     float y[order+1]; // Filtered values
 
   public:  
-    LowPass(float f0, float fs, bool adaptive){
+    LowPass(float f0, float fs, bool adaptive) {
       // f0: cutoff frequency (Hz)
       // fs: sample frequency (Hz)
       // adaptive: boolean flag, if set to 1, the code will automatically set
@@ -207,7 +207,8 @@ class LowPass
 Adafruit_LIS3MDL lis3mdl;
 
 // Filter instance
-LowPass<2> lp(3,1e3,true);
+LowPass<2> lp_compass(3,1e3,true);
+LowPass<2> lp_camera(3,1e3,true);
 
 void setup() {
   // initialize output pins
@@ -346,16 +347,12 @@ void loop() {
         x_ball_pos = x_ball_pos / 100;
     
         // Set error with target of 0
-
+        d_error = y_ball_pos;
+        a_error = lp_camera.filt(atan(x_ball_pos/y_ball_pos));
         if (!pixy.ccc.numBlocks) {
           a_error = 0;
           d_error = 0;
-          prev_d_error = 0;
-        } else {
-          a_error = atan(x_ball_pos/y_ball_pos);
-          d_error = y_ball_pos;
         }
-
         nxt_state = GOTO_BALL;
       break;
       case GET_BALL:
@@ -519,54 +516,6 @@ double PID(double error, double &prev_error, double &integral, double Kp, double
   return out;
 }
 
-// Limits the maximum speed of the motors to a chosen cap
-void LimitMotors(int maxSpeed) {
-  
-    //If the motors are > maxSpeed, or < -maxSpeed, we set speed to the abs(max)
-
-    // Right
-    if(RightMotorSpeed > maxSpeed)
-    {
-      RightMotorSpeed = maxSpeed;
-    }
-   
-    if(RightMotorSpeed > maxSpeed)
-    {
-      RightMotorSpeed = maxSpeed;
-    }
-
-    if(RightMotorSpeed < -maxSpeed)
-    {
-      RightMotorSpeed = -maxSpeed;
-    }
-   
-    if(RightMotorSpeed < -maxSpeed)
-    {
-      RightMotorSpeed = -maxSpeed;
-    }
-
-    // Left
-    if(LeftMotorSpeed > maxSpeed)
-    {
-      LeftMotorSpeed = maxSpeed;
-    }
-   
-    if(LeftMotorSpeed > maxSpeed)
-    {
-      LeftMotorSpeed = maxSpeed;
-    }
-
-    if(LeftMotorSpeed < -maxSpeed)
-    {
-      LeftMotorSpeed = -maxSpeed;
-    }
-   
-    if(LeftMotorSpeed < -maxSpeed)
-    {
-      LeftMotorSpeed = -maxSpeed;
-    }
-}
-
 /// ODOMETRY FUNCTIONS
 void StartOdometry() {
   attachInterrupt(digitalPinToInterrupt(rCLK), rEncMove, CHANGE);
@@ -626,7 +575,7 @@ void Odometry() {
   a = heading*PI/180;
 
   // Compute the filtered signal
-  a_filtered = lp.filt(a);  
+  a_filtered = lp_compass.filt(a);  
 
   // Center compass to start position 
   a_filtered = a_filtered - startingAngle;
