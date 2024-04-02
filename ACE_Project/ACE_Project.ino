@@ -21,6 +21,7 @@ bool pt_valid = 0;
 
 // Variables
 unsigned long init_ball_seen_time; // When robot sees ball in pixy it waits a short time to determine if the object is consistent before going
+unsigned long init_ball_lost_time; // Same but for losing the ball in camera
 
 // Odometry Definitions
 #define CLKS_PER_SAMPLE 4 // pure counts of encoder
@@ -224,9 +225,11 @@ void setup() {
   pixy.init();
   // Setup Odometry
   StartOdometry();
-  // First state
+  
+  // ROBOT MODE (use without external input to change what robot does)
   state = GOTO_BALL;
   command = wait;
+  pt_valid = 0;
 }
 
 void loop() {
@@ -295,6 +298,7 @@ void loop() {
         pixy.ccc.getBlocks();
         if (pixy.ccc.numBlocks && millis() > init_ball_seen_time + 500) {
             nxt_state = GOTO_BALL;
+            init_ball_lost_time = millis();
             prev_a_error = 0;
             prev_d_error = 0;
             a_error = 0;
@@ -319,13 +323,16 @@ void loop() {
         IntakeSpeed = 60; // Run intake when ball in view
         
         pixy.ccc.getBlocks();
-        if (pixy.ccc.numBlocks) {
-          nxt_state = GOTO_BALL;
-        } else {
+
+        if (!pixy.ccc.numBlocks && millis() > init_ball_lost_time + 300) {
           nxt_state = GET_BALL;
           init_ball_seen_time = millis();
+        } else {
+          nxt_state = GOTO_BALL;
+          init_ball_lost_time = millis();
         }
-        //
+        
+        // emergency commands
         if (command == e_stop) {
           nxt_state = HOLD;
         } else if (command == e_home) {
@@ -353,7 +360,7 @@ void loop() {
           a_error = 0;
           d_error = 0;
         }
-        nxt_state = GOTO_BALL;
+        nxt_state = GOTO_BALL; // this is here to stay in this state indefinetly for now
       break;
       case GET_BALL:
         if (command == e_stop) {
@@ -389,7 +396,7 @@ void loop() {
         } else if (x_error < 0.40 && y_error < 0.40) {
           nxt_state = WAIT;
         }
-        nxt_state = WAIT;
+        nxt_state = WAIT; // this is here to bypass this state for now
         prev_a_error = 0;
         prev_d_error = 0;
         a_error = 0;
@@ -448,6 +455,7 @@ void loop() {
     RMotor(conR, RightMotorSpeed);
     LMotor(conL, LeftMotorSpeed);
     IMotor(conI, IntakeSpeed);
+
  
     /// PRINT Data
 //    Serial.print("xscreenpos: ");
@@ -460,10 +468,10 @@ void loop() {
 //    Serial.print(x_pos);
 //    Serial.print("     Angle ofst from target: ");
 //    Serial.print(a_error);
-//    Serial.print("  R: ");
-//    Serial.print(RightMotorSpeed);
-//    Serial.print("   L: ");
-//    Serial.print(LeftMotorSpeed);
+    Serial.print("  R: ");
+    Serial.print(RightMotorSpeed);
+    Serial.print("   L: ");
+    Serial.print(LeftMotorSpeed);
 //    Serial.print("   x: ");
 //    Serial.print(x, 2);
 //    Serial.print("   y: ");
@@ -484,7 +492,7 @@ void loop() {
 //      Serial.print(a_out);
 //    Serial.print("  STATE: ");
 //    Serial.print(state);
-//    Serial.println();
+    Serial.println();
 }
 
 ///END OF MAIN
