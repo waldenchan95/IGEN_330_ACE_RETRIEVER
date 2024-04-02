@@ -8,9 +8,9 @@
 Pixy2 pixy;
 
 // constants
-const int conR = 10; // pin 10 on timer 1
-const int conL = 9; // pin 9 on timer 1
-const int conI = 3; // pins 11 and 3 on timer 2 (pin 11 seems to not work though)
+const int conR = 6; // pin 10 on timer 1
+const int conL = 7; // pin 9 on timer 1
+const int conI = 44; // pins 11 and 3 on timer 2 (pin 11 seems to not work though)
 const int frequency = 150; // do not change
 
 // pixy variables
@@ -38,9 +38,9 @@ int LeftMotorSpeed = 0;
 
 // Algorithm constants
 // Speed
-const double maxSpeed = 150; // (0 - 255) Use this to holistically adjust speed of robot, everything is based on this
+const double maxSpeed = 230; // (0 - 255) Use this to holistically adjust speed of robot, everything is based on this
 //
-const double Kp = 0.5*(0.5*maxSpeed); // Gain of PID system
+const double Kp = 0.1*maxSpeed; // Gain of PID system
 const double Ki = 0.0006*maxSpeed; // integral multiplier
 const double Kd = 4*maxSpeed; // derivative multiplier
 const double dt = 5; // time between error updates
@@ -69,7 +69,7 @@ void setup() {
 void loop() {
     
     // Run intake constantly
-    IMotor(conI, -40);
+    IMotor(conI, 50);
 
     /// GET PIXY
     int i;
@@ -94,7 +94,7 @@ void loop() {
     Serial.print("   xpos:  ");
     Serial.print(x_pos);
     // set robot to move forward towards the ball
-    baseSpeed = 30;//y_pos/farthestY*maxSpeed;
+    baseSpeed = 60;//y_pos/farthestY*maxSpeed;
     
     // Find Angle of offset using x and y; angle of ball with respect to robot (we want this to be 0)
     error = atan(x_pos/y_pos); // converted error from sensor input into same units as desird value, i.e. radians/angle
@@ -136,16 +136,17 @@ void loop() {
 ///FUNCTIONS BELOW
 
 // Changes PWM frequency for a given timer
-void set_pwm_frequency(int frequency) {
+void set_pwm_frequency(int input_frequency) {
 
-  Timer1_Initialize();
-  Timer2_Initialize();
-  bool set_timer1_success = Timer1_SetFrequency(frequency);
-  bool set_timer2_success = Timer2_SetFrequency(frequency);
-  Serial.print("  Setting timer 1 frequency: ");
-  Serial.print(set_timer1_success);
-  Serial.print("  Setting timer 2 frequency: ");
-  Serial.print(set_timer2_success);
+  InitTimersSafe();
+  
+  bool set_timer4_success = Timer4_SetFrequency(input_frequency);
+  Serial.print("  Setting timer 4 frequency: ");
+  Serial.print(set_timer4_success);
+
+  bool set_timer5_success = Timer5_SetFrequency(input_frequency);
+  Serial.print("  Setting timer 5 frequency: ");
+  Serial.print(set_timer5_success);
 }
 
 // PID controller
