@@ -13,7 +13,7 @@ Pixy2 pixy;
 
 // OVERALL CONTROL
 // States
-enum States { SETUP, ANGLE_INIT_DELAY, WAIT, GOTO_PT, GOTO_BALL, GET_BALL, CHK_DONE, GO_HOME, HOLD } state, nxt_state;
+enum States { SETUP, ANGLE_INIT_DELAY, WAIT, GOTO_PT, SCAN, GOTO_BALL, GET_BALL, GO_HOME, HOLD } state, nxt_state;
 // Commands
 enum Commands { wait, start, e_stop, e_home } command;
 // Controlled externally: tells robot if there are any more balls it must go to
@@ -21,7 +21,9 @@ bool pt_valid = 0;
 
 // Variables
 unsigned long init_ball_seen_time; // When robot sees ball in pixy it waits a short time to determine if the object is consistent before going
+unsigned long init_get_ball; // used for get ball timer
 unsigned long init_ball_lost_time; // Same but for losing the ball in camera
+unsigned long init_scan_time; // used for scan state timer
 
 // Odometry Definitions
 #define CLKS_PER_SAMPLE 4 // pure counts of encoder
@@ -213,7 +215,6 @@ Adafruit_LIS3MDL lis3mdl;
 
 // Filter instance
 LowPass<2> lp_compass(3,1e3,true);
-LowPass<2> lp_camera(3,1e3,true);
 
 void setup() {
   // initialize output pins
@@ -252,7 +253,6 @@ void loop() {
         else {
           nxt_state = SETUP;
         }
-
       break;
       case ANGLE_INIT_DELAY:
         if(millis() < startingAngle_init_time + 300){
@@ -267,15 +267,13 @@ void loop() {
         if (command == start) {
           nxt_state = GOTO_PT;
           init_ball_seen_time = millis();
-          prev_a_error = 0;
-          prev_d_error = 0;
-          //a_error = 0;
-          d_error = 0;
           last_time = millis();
           RightMotorSpeed = 0;
           LeftMotorSpeed = 0;
           IntakeSpeed = 0;
         }
+        
+        // emergency
         else if (command == e_home)
           nxt_state = GO_HOME;
         else
@@ -308,19 +306,33 @@ void loop() {
             a_error = 0;
             d_error = 0;
             last_time = millis();
-            RightMotorSpeed = 0;
-            LeftMotorSpeed = 0;
             IntakeSpeed = 0;
         } else if(x_error < 0.40 && y_error < 0.40) {
-          nxt_state = GOTO_BALL;
+          nxt_state = SCAN;
+          init_scan_time = millis();
         } else {
           init_ball_seen_time = millis(); // when ball is seen this will be the initial time it was seen
           nxt_state = GOTO_PT;
         }
+        // emergency
         if (command == e_stop) {
           nxt_state = HOLD;
         } else if (command == e_home) {
           nxt_state = GO_HOME;
+        }
+      break;
+      case SCAN:
+        // spins in circle to look for ball
+        d_error = 0;
+        a_error = 0.2;
+
+        pixy.ccc.getBlocks();
+        if (pixy.ccc.numBlocks) {
+          nxt_state = GOTO_BALL;
+        } else if (millis() > init_scan_time + 2500) {
+          nxt_state = GO_HOME;
+        } else {
+          nxt_state = SCAN;
         }
       break;
       case GOTO_BALL:
@@ -329,8 +341,13 @@ void loop() {
         pixy.ccc.getBlocks();
 
         if (!pixy.ccc.numBlocks && millis() > init_ball_lost_time + 500) {
-          nxt_state = GET_BALL;
-          init_ball_seen_time = millis();
+          if (x_ball_pos < 0.1 && y_ball_pos < 0.4) { // If ball lost near intake drive forward to get ball, if far scan for ball
+            nxt_state = GET_BALL;
+            init_get_ball = millis();
+          } else {
+            nxt_state = SCAN;
+            init_scan_time = millis();
+          }
         } else {
           nxt_state = GOTO_BALL;
           init_ball_lost_time = millis();
@@ -367,52 +384,35 @@ void loop() {
           d_error = y_ball_pos;
           double temp_a_error = atan(x_ball_pos/y_ball_pos);
           a_error = temp_a_error;
-          //a_error = lp_camera.filt(temp_a_error);
         }
-        
-        nxt_state = GOTO_BALL; // this is here to stay in this state indefinetly for now
       break;
       case GET_BALL:
+        // emergency
         if (command == e_stop) {
           nxt_state = HOLD;
         } else if (command == e_home) {
           nxt_state = GO_HOME;
         }
         // Drive forward at mid speed for short time;
-        if (millis() < init_ball_seen_time + 600)
+        if (millis() < init_get_ball + 600)
           nxt_state = GET_BALL;
         else
-          nxt_state = CHK_DONE;
+          nxt_state = GO_HOME;
+          
         prev_a_error = 0;
         prev_d_error = 0.5;
         a_error = 0;
-        d_error = 0.5;
-        last_time = millis();
-        IntakeSpeed = 40;
-      break;
-      case CHK_DONE:
-        if (pt_valid == 0)
-          nxt_state = GO_HOME;
-        else
-          nxt_state = GOTO_PT;
+        d_error = 0.5; // d_error makes robot drive forward
+        IntakeSpeed = 60;
       break;
       case GO_HOME:
         if (command == e_stop) {
           nxt_state = HOLD;
         } else if (command == e_home) {
           nxt_state = GO_HOME;
-        } else if (x_error < 0.40 && y_error < 0.40) {
+        } else if (x_error < 0.30 && y_error < 0.30) {
           nxt_state = WAIT;
         }
-        nxt_state = WAIT; // this is here to bypass this state for now
-        prev_a_error = 0;
-        prev_d_error = 0;
-        a_error = 0;
-        d_error = 0;
-        last_time = millis();
-        RightMotorSpeed = 0;
-        LeftMotorSpeed = 0;
-        IntakeSpeed = 0;
         
         // Set target as 0, 0 and go home
         x_error = 0 - x;
@@ -432,8 +432,6 @@ void loop() {
         a_error = 0;
         d_error = 0;
         last_time = millis();
-        RightMotorSpeed = 0;
-        LeftMotorSpeed = 0;
         IntakeSpeed = 0;
       break;
       default:
@@ -444,10 +442,10 @@ void loop() {
     
     /// PID TO TARGET and SET MOTOR SPEEDS
     if (millis() > last_time + PIDdt) {
-      if(state != GOTO_BALL) {
-        a_out = PID(a_error, prev_a_error, a_integral, cK, cKi, cKd, PIDdt/1000);
-      } else {
+      if(state == GOTO_BALL) {
         a_out = PID(a_error, prev_a_error, a_integral, aK, aKi, aKd, PIDdt/1000);
+      } else {
+        a_out = PID(a_error, prev_a_error, a_integral, cK, cKi, cKd, PIDdt/1000);
       }
       
       baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, PIDdt/1000);
@@ -464,6 +462,10 @@ void loop() {
     LeftMotorSpeed = baseSpeed + a_out;
 
     if (state == GOTO_BALL && !pixy.ccc.numBlocks) {
+      RightMotorSpeed = 0;
+      LeftMotorSpeed = 0;
+    }
+    if (state == HOLD) {
       RightMotorSpeed = 0;
       LeftMotorSpeed = 0;
     }
