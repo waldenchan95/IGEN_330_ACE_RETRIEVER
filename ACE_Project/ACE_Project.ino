@@ -281,7 +281,7 @@ void loop() {
         
         // Maintain starting angle.
         // This will also revert the robot back to the correct angle after coming home during the GO_HOME state
-        a_error = -a_filtered;
+        a_error = startingAngle - a_filtered;
         d_error = 0;
       break;
       case GOTO_PT:   
