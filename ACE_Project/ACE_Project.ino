@@ -315,6 +315,13 @@ void loop() {
         } else if(x_error < 0.40 && y_error < 0.40) {
           nxt_state = SCAN;
           init_scan_time = millis();
+
+          // this was added for testing so it stops when near a point when we lock it in this state but shouldnt affect anything
+          prev_a_error = 0;
+          a_error = 0;
+          prev_d_error = 0;
+          d_error = 0;
+          
         } else {
           init_ball_seen_time = millis(); // when ball is seen this will be the initial time it was seen
           nxt_state = GOTO_PT;
@@ -325,6 +332,7 @@ void loop() {
         } else if (command == e_home) {
           nxt_state = GO_HOME;
         }
+        //nxt_state = GOTO_PT; //Add this to stay locked in this state for testing
       break;
       case SCAN:
         // spins in circle to look for ball
