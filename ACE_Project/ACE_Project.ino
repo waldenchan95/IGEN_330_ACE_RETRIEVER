@@ -66,9 +66,8 @@ double flt_coeff[15] { 0.252, 0.1894, 0.1423, 0.1069, 0.0804, 0.0604, 0.0454, 0.
 double flt_prev[14] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 unsigned long flt_last_time = 0;
 // Hard-iron calibration settings
-// (0.20, -5.33, -30.06)
 const float hard_iron[3] = {
-  0.020,  -5.33,  -30.06
+  0.20,  -5.33,  -30.06
 };
 // Soft-iron calibration settings
 const float soft_iron[3][3] = {
@@ -86,8 +85,8 @@ int y_pos_ooi = 316; //y position of object of interest
 double x_ball_pos = 0;
 double y_ball_pos = 0;
 // Target Point (populated by external system)
-double x_target = 3; // W/O external input we can hardcode a position and try to go there
-double y_target = 2;
+double x_target = 2; // W/O external input we can hardcode a position and try to go there
+double y_target = 0;
 double x_error; // components of positional error only used in intermediate steps
 double y_error;
 // control variables
@@ -106,7 +105,6 @@ int IntakeSpeed = 0;
 
 // CONSTANTS
 // Geometric Constants
-const long closestY = 20; // [cm] Closest physical distance the ball is from the robot and still in camera
 const long farthestY = 162; // [cm] Farthest distance ball is in camera view
 const long widestX = 126; // [cm] When ball is at farthest y, the widest x can be from center
 // Algorithm constants
@@ -114,14 +112,14 @@ const int baseSpeedMax = 180;
 // PID
 const double PIDdt = 10; // (ms) time between a_error updates (multiplied by 1000 to be used in millis()) 
 // Camera Angle PID constants
-const double aK = 360; // MASTER GAIN rotation
+const double aK = 360; // MASTER GAIN rotation (im pretrty sure these arent actually master gains theyre just Kp)
 const double aKi = 45; // integral multiplier
 const double aKd = 50; // derivative multiplier
 // Compass Angle PID constants
-const double cK = 72; // MASTER GAIN rotation
-const double cKi = 5; // integral multiplier
-const double cKd = 5; // derivative multiplier
-// BaseSpeed PID constants
+const double cK = 75; // MASTER GAIN rotation
+const double cKi = 32; // integral multiplier
+const double cKd = 9; // derivative multiplier
+// BaseSpeed PID constant
 const double dK = 86; // MASTER GAIN drive
 const double dKi = 50; // integral multiplier
 const double dKd = 10; // derivative multiplier
@@ -214,7 +212,7 @@ class LowPass
 Adafruit_LIS3MDL lis3mdl;
 
 // Filter instance
-LowPass<2> lp_compass(3,1e3,true);
+LowPass<2> lp_compass(5,1e3,true);
 
 void setup() {
   // initialize output pins
@@ -247,6 +245,8 @@ void loop() {
         if (millis() > 300) { // give some time for odometry to read position
           nxt_state = ANGLE_INIT_DELAY;
           startingAngle = a_filtered;
+          Serial.print(" StartingAngle: "
+          Serial.println(startingAngle);
           IntakeSpeed = 0;
           startingAngle_init_time = millis();
         }
@@ -292,6 +292,11 @@ void loop() {
         y_error = y_target - y;
         d_error = sqrt(pow(x_error, 2) + pow(y_error, 2));
         a_error = atan(y_error/x_error) - a_filtered;
+
+        if (millis() < 2000) {
+          d_error = 0;
+          a_error = 0;
+        }
         
         // State logic
         if (!pt_valid) {
@@ -385,6 +390,7 @@ void loop() {
           double temp_a_error = atan(x_ball_pos/y_ball_pos);
           a_error = temp_a_error;
         }
+        //nxt_state = GOTO_BALL; // for testing
       break;
       case GET_BALL:
         // emergency
@@ -451,6 +457,21 @@ void loop() {
       baseSpeed = PID(d_error, prev_d_error, d_integral, dK, dKi, dKd, PIDdt/1000);
       last_time = millis();
     } 
+
+    // WSF Filter Signal
+    double a_out_filtered;
+    if (millis() > flt_last_time + 1) {
+      flt_last_time = millis();
+      
+      a_out_filtered = a_out*flt_coeff[0];
+      for (int i = 0; i < 14; i++) {
+        a_out_filtered += flt_prev[i]*flt_coeff[i+1];
+      }
+      for (int i = 13; i > 0; i--) {
+        flt_prev[i] = flt_prev[i-1];
+      }
+      flt_prev[0] = a_out;
+    }
     
     if (baseSpeed > baseSpeedMax) {
       baseSpeed = baseSpeedMax;
@@ -458,8 +479,8 @@ void loop() {
     
     //baseSpeed = 0; //for testing
     // Set motor speeds
-    RightMotorSpeed = baseSpeed - a_out;
-    LeftMotorSpeed = baseSpeed + a_out;
+    RightMotorSpeed = baseSpeed - a_out_filtered;
+    LeftMotorSpeed = baseSpeed + a_out_filtered;
 
     if (state == GOTO_BALL && !pixy.ccc.numBlocks) {
       RightMotorSpeed = 0;
@@ -473,6 +494,7 @@ void loop() {
     RMotor(conR, RightMotorSpeed);
     LMotor(conL, LeftMotorSpeed);
     IMotor(conI, IntakeSpeed);
+
 
  
     /// PRINT Data
@@ -490,24 +512,24 @@ void loop() {
 //    Serial.print(RightMotorSpeed);
 //    Serial.print("   L: ");
 //    Serial.print(LeftMotorSpeed);
-    Serial.print("   x: ");
-    Serial.print(x, 2);
-    Serial.print("   y: ");
-    Serial.print(y, 2);
+//    Serial.print("   x: ");
+//    Serial.print(x, 2);
+//    Serial.print("   y: ");
+//    Serial.print(y, 2);
 //    Serial.print("  angle_deg: ");
 //    Serial.print(a_deg, 5);
 //    Serial.print("  bot_angle: ");
 //    Serial.print(a, 5);
-    Serial.print("  Filtered angle: ");
-      Serial.print(a_filtered, 5);
-      Serial.print("d error:  ");
-      Serial.print(d_error);
+//      Serial.print("  Filtered angle: ");
+//      Serial.print(a_filtered, 5);
+//      Serial.print("d error:  ");
+//      Serial.print(d_error);
 //      Serial.print("  BASESPEED  ");
 //      Serial.print(baseSpeed);
-//      Serial.print("   Angle error:  ");
-//      Serial.print(a_error);
-//      Serial.print("  A out:  ");
-      //Serial.print(a_out);
+      Serial.print("   Angle error:  ");
+      Serial.print(a_error);
+      Serial.print("  A out:  ");
+      Serial.print(a_out_filtered);
 //    Serial.print("  STATE: ");
 //    Serial.print(state);
     Serial.println();
@@ -593,10 +615,10 @@ void Odometry() {
   // Calculate angle for heading, assuming board is parallel to
   // the ground and  Y points toward heading.
   heading = -1.0 * (atan2(mag_data[0], mag_data[1])*180)/PI;
-  a_deg = heading; // Saving the magnetic heading in degrees for troubleshooting
-  if (a_deg < 0) {
-    a_deg += 360;
-  }
+//  a_deg = heading; // Saving the magnetic heading in degrees for troubleshooting
+//  if (a_deg < 0) {
+//    a_deg += 360;
+//  }
   
   a = heading*PI/180;
 
@@ -604,25 +626,11 @@ void Odometry() {
   a_filtered = lp_compass.filt(a);  
 
   // Center compass to start position 
-  a_filtered = a_filtered - startingAngle;
-  if (startingAngle > 0 && a_filtered < -PI) {
-    a_filtered = 2*PI + a_filtered;
-  } else if (startingAngle < 0 && a_filtered > PI) {
-    a_filtered = a_filtered - 2*PI;
-  }
-  
-//  // WSF Filter Signal
-//  if (millis() > flt_last_time + 1) {
-//    flt_last_time = millis();
-//    
-//    a_filtered = a*flt_coeff[0];
-//    for (int i = 0; i < 14; i++) {
-//      a_filtered += flt_prev[i]*flt_coeff[i+1];
-//    }
-//    for (int i = 13; i > 0; i--) {
-//      flt_prev[i] = flt_prev[i-1];
-//    }
-//    flt_prev[0] = a;
+//  a_filtered = a_filtered - startingAngle;
+//  if (startingAngle > 0 && a_filtered < -PI) {
+//    a_filtered = 2*PI + a_filtered;
+//  } else if (startingAngle < 0 && a_filtered > PI) {
+//    a_filtered = a_filtered - 2*PI;
 //  }
 
   if (abs(rcounter) > CLKS_PER_SAMPLE || abs(lcounter) > CLKS_PER_SAMPLE) {
