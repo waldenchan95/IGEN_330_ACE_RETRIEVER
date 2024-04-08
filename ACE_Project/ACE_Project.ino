@@ -66,8 +66,9 @@ double flt_coeff[15] { 0.252, 0.1894, 0.1423, 0.1069, 0.0804, 0.0604, 0.0454, 0.
 double flt_prev[14] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 unsigned long flt_last_time = 0;
 // Hard-iron calibration settings
+//Mag: (39.33, 1.70, -36.63) Hard offset: (1.93, -7.37, -32.25) Field: (42.62, 37.29, 44.31)
 const float hard_iron[3] = {
-  0.20,  -5.33,  -30.06
+  1.93,  -7.37,  -30.25
 };
 // Soft-iron calibration settings
 const float soft_iron[3][3] = {
@@ -555,16 +556,16 @@ else {
 //    Serial.print(a_deg, 5);
 //    Serial.print("  bot_angle: ");
 //    Serial.print(a, 5);
-//      Serial.print("  Filtered angle: ");
-//      Serial.print(a_filtered, 5);
+      Serial.print("  Filtered angle: ");
+      Serial.print(a_filtered, 5);
 //      Serial.print("d error:  ");
 //      Serial.print(d_error);
 //      Serial.print("  BASESPEED  ");
 //      Serial.print(baseSpeed);
-      Serial.print("   Angle error:  ");
-      Serial.print(a_error);
-      Serial.print("  A out:  ");
-      Serial.print(a_out_filtered);
+//      Serial.print("   Angle error:  ");
+//      Serial.print(a_error);
+//      Serial.print("  A out:  ");
+//      Serial.print(a_out_filtered);
 //    Serial.print("  STATE: ");
 //    Serial.print(state);
     Serial.println();
