@@ -116,7 +116,8 @@ const double aK = 360; // MASTER GAIN rotation (im pretrty sure these arent actu
 const double aKi = 45; // integral multiplier
 const double aKd = 50; // derivative multiplier
 // Compass Angle PID constants
-const double cK = 75; // MASTER GAIN rotation
+//const double cK = 75; // MASTER GAIN rotation
+const double cK = 30; // MASTER GAIN rotation
 const double cKi = 32; // integral multiplier
 const double cKd = 9; // derivative multiplier
 // BaseSpeed PID constant
@@ -231,8 +232,11 @@ void setup() {
   
   // ROBOT MODE (use without external input to change what robot does)
   state = SETUP;
-  command = wait;
-  pt_valid = 0;
+  //command = wait;
+  command = start;
+  x_target = 2;
+  y_target = -4;
+  pt_valid = 1;
 }
 
 void loop() {
@@ -245,7 +249,7 @@ void loop() {
         if (millis() > 300) { // give some time for odometry to read position
           nxt_state = ANGLE_INIT_DELAY;
           startingAngle = a_filtered;
-          Serial.print(" StartingAngle: "
+          Serial.print(" StartingAngle");
           Serial.println(startingAngle);
           IntakeSpeed = 0;
           startingAngle_init_time = millis();
@@ -312,9 +316,12 @@ void loop() {
             d_error = 0;
             last_time = millis();
             IntakeSpeed = 0;
-        } else if(x_error < 0.40 && y_error < 0.40) {
+        } else if(abs(x_error) < 0.40 && abs(y_error) < 0.40) {
           nxt_state = SCAN;
+          a_integral = 0;
+          d_integral = 0;
           init_scan_time = millis();
+          init_ball_seen_time = millis();
 
           // this was added for testing so it stops when near a point when we lock it in this state but shouldnt affect anything
           prev_a_error = 0;
@@ -337,13 +344,23 @@ void loop() {
       case SCAN:
         // spins in circle to look for ball
         d_error = 0;
-        a_error = 0.2;
+        a_error = 0;
+        //IntakeSpeed = -50; //scan state indicator
 
         pixy.ccc.getBlocks();
-        if (pixy.ccc.numBlocks) {
-          nxt_state = GOTO_BALL;
-        } else if (millis() > init_scan_time + 2500) {
-          nxt_state = GO_HOME;
+        if (pixy.ccc.numBlocks && millis() > init_ball_seen_time + 200) {
+            nxt_state = GOTO_BALL;
+            init_ball_lost_time = millis();
+            prev_a_error = 0;
+            prev_d_error = 0;
+            a_error = 0;
+            d_error = 0;
+            last_time = millis();
+            IntakeSpeed = 0;
+      //  if (pixy.ccc.numBlocks*0) {
+      //    nxt_state = GOTO_BALL;
+        //} else if (millis() > init_scan_time + 2500) {
+        //  nxt_state = GO_HOME;
         } else {
           nxt_state = SCAN;
         }
@@ -447,6 +464,8 @@ void loop() {
         d_error = 0;
         last_time = millis();
         IntakeSpeed = 0;
+        a_integral = 0;
+        d_integral = 0;
       break;
       default:
         nxt_state = WAIT;
@@ -485,11 +504,10 @@ void loop() {
       baseSpeed = baseSpeedMax;
     }
     
-    //baseSpeed = 0; //for testing
+    if (baseSpeed > 50) {
+      baseSpeed = 50; //for testing
+    }
     // Set motor speeds
-    RightMotorSpeed = baseSpeed - a_out_filtered;
-    LeftMotorSpeed = baseSpeed + a_out_filtered;
-
     if (state == GOTO_BALL && !pixy.ccc.numBlocks) {
       RightMotorSpeed = 0;
       LeftMotorSpeed = 0;
@@ -498,7 +516,16 @@ void loop() {
       RightMotorSpeed = 0;
       LeftMotorSpeed = 0;
     }
-
+    
+    if (state == SCAN) {
+      RightMotorSpeed = 50;
+      LeftMotorSpeed = -45;
+    }
+else {
+    RightMotorSpeed = baseSpeed - a_out_filtered;
+    LeftMotorSpeed = baseSpeed + a_out_filtered;
+}
+    
     RMotor(conR, RightMotorSpeed);
     LMotor(conL, LeftMotorSpeed);
     IMotor(conI, IntakeSpeed);
