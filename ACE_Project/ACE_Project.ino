@@ -26,7 +26,7 @@ unsigned long init_ball_lost_time; // Same but for losing the ball in camera
 unsigned long init_scan_time; // used for scan state timer
 
 // Odometry Definitions
-#define CLKS_PER_SAMPLE 4 // pure counts of encoder
+#define CLKS_PER_SAMPLE 1 // pure counts of encoder
 #define DIST_PER_CLK 0.005984734*240/207 // calibrated real world (m)
 
 // PINS
@@ -56,8 +56,10 @@ int lcounter = 0;
 double x = 0; //(m)
 double y = 0; //(m)
 double a = 0; //(rad) // raw angle data
-double a_filtered = 0; //(rad) angle after it has been filtered
+double r = 0; //(rad) angle after it has been filtered
+double a_c = 0; 
 double a_deg = 0; //(deg) Used purely for troubleshooting
+enum DIR {E, W} dir_flg;
 // Magnetometer
 double startingAngle = 0; // This angle is whichever way the robot is facing upon startup which becomes the origin angle
 unsigned long startingAngle_init_time = 0;
@@ -118,9 +120,12 @@ const double aKi = 45; // integral multiplier
 const double aKd = 50; // derivative multiplier
 // Compass Angle PID constants
 //const double cK = 75; // MASTER GAIN rotation
-const double cK = 30; // MASTER GAIN rotation
-const double cKi = 32; // integral multiplier
-const double cKd = 9; // derivative multiplier
+//const double cK = 50; // MASTER GAIN rotation
+//const double cKi = 32; // integral multiplier
+//const double cKd = 11; // derivative multiplier
+const double cK = 66; // MASTER GAIN rotation
+const double cKi = 11; // integral multiplier
+const double cKd = 14; // derivative multiplier
 // BaseSpeed PID constant
 const double dK = 86; // MASTER GAIN drive
 const double dKi = 50; // integral multiplier
@@ -214,7 +219,7 @@ class LowPass
 Adafruit_LIS3MDL lis3mdl;
 
 // Filter instance
-LowPass<2> lp_compass(5,1e3,true);
+LowPass<2> lp_compass(15,1e3,true);
 
 void setup() {
   // initialize output pins
@@ -232,11 +237,11 @@ void setup() {
   StartOdometry();
   
   // ROBOT MODE (use without external input to change what robot does)
-  state = SETUP;
+  state = GOTO_BALL;
   //command = wait;
   command = start;
-  x_target = 2;
-  y_target = -4;
+  x_target = 7;
+  y_target = 9;
   pt_valid = 1;
 }
 
@@ -249,7 +254,7 @@ void loop() {
       case SETUP:
         if (millis() > 300) { // give some time for odometry to read position
           nxt_state = ANGLE_INIT_DELAY;
-          startingAngle = a_filtered;
+          startingAngle = r;
           Serial.print(" StartingAngle");
           Serial.println(startingAngle);
           IntakeSpeed = 0;
@@ -286,8 +291,9 @@ void loop() {
         
         // Maintain starting angle.
         // This will also revert the robot back to the correct angle after coming home during the GO_HOME state
-        a_error = startingAngle - a_filtered;
-        d_error = 0;
+       // a_error = startingAngle - r;
+       a_error = GetAngleError(startingAngle);
+       d_error = 0;
       break;
       case GOTO_PT:   
         /// EXTERNAL CAMERA/POINT TARGET
@@ -296,7 +302,8 @@ void loop() {
         x_error = x_target - x;
         y_error = y_target - y;
         d_error = sqrt(pow(x_error, 2) + pow(y_error, 2));
-        a_error = atan(y_error/x_error) - a_filtered;
+        a_error = GetAngleError(atan2(y_error, x_error));
+        //Serial.print();
 
         if (millis() < 2000) {
           d_error = 0;
@@ -349,7 +356,7 @@ void loop() {
         //IntakeSpeed = -50; //scan state indicator
 
         pixy.ccc.getBlocks();
-        if (pixy.ccc.numBlocks && millis() > init_ball_seen_time + 200) {
+        if (pixy.ccc.numBlocks && millis() > init_ball_seen_time + 500) {
             nxt_state = GOTO_BALL;
             init_ball_lost_time = millis();
             prev_a_error = 0;
@@ -370,26 +377,6 @@ void loop() {
         IntakeSpeed = 60; // Run intake when ball in view
         
         pixy.ccc.getBlocks();
-
-        if (!pixy.ccc.numBlocks && millis() > init_ball_lost_time + 500) {
-          if (x_ball_pos < 0.1 && y_ball_pos < 0.4) { // If ball lost near intake drive forward to get ball, if far scan for ball
-            nxt_state = GET_BALL;
-            init_get_ball = millis();
-          } else {
-            nxt_state = SCAN;
-            init_scan_time = millis();
-          }
-        } else {
-          nxt_state = GOTO_BALL;
-          init_ball_lost_time = millis();
-        }
-        
-        // emergency commands
-        if (command == e_stop) {
-          nxt_state = HOLD;
-        } else if (command == e_home) {
-          nxt_state = GO_HOME;
-        }
         
         x_pos_ooi = pixy.ccc.blocks[0].m_x; // will focus on first seen object
         y_pos_ooi = pixy.ccc.blocks[0].m_y;
@@ -416,7 +403,28 @@ void loop() {
           double temp_a_error = atan(x_ball_pos/y_ball_pos);
           a_error = temp_a_error;
         }
-        //nxt_state = GOTO_BALL; // for testing
+
+        if (!pixy.ccc.numBlocks && millis() > init_ball_lost_time + 500) {
+          if (abs(x_ball_pos) < 0.155 && y_ball_pos < 0.28) { // If ball lost near intake drive forward to get ball, if far scan for ball
+            nxt_state = GET_BALL;
+            init_get_ball = millis();
+          } else {
+            nxt_state = SCAN;
+            init_scan_time = millis();
+          }
+        } else {
+          nxt_state = GOTO_BALL;
+          init_ball_lost_time = millis();
+        }
+        
+        // emergency commands
+        if (command == e_stop) {
+          nxt_state = HOLD;
+        } else if (command == e_home) {
+          nxt_state = GO_HOME;
+        }
+        
+        nxt_state = GOTO_BALL; // for testing
       break;
       case GET_BALL:
         // emergency
@@ -450,7 +458,7 @@ void loop() {
         x_error = 0 - x;
         y_error = 0 - y;
         d_error = sqrt(pow(x_error, 2) + pow(y_error, 2));
-        a_error = atan(y_error/x_error) - a_filtered;
+        a_error = GetAngleError(atan2(y_error, x_error));
       break;
       case HOLD:
         if (command == e_stop) {
@@ -505,8 +513,8 @@ void loop() {
       baseSpeed = baseSpeedMax;
     }
     
-    if (baseSpeed > 50) {
-      baseSpeed = 50; //for testing
+    if (baseSpeed > 70) {
+      baseSpeed = 70; //for testing
     }
     // Set motor speeds
     if (state == GOTO_BALL && !pixy.ccc.numBlocks) {
@@ -538,10 +546,10 @@ else {
 //    Serial.print(x_pos_ooi);
 //    Serial.print("yscreenpos: ");
 //    Serial.print(y_pos_ooi);
-//    Serial.print("yballpos:  ");
-//    Serial.print(y_pos);
-//    Serial.print("   xballpos:  ");
-//    Serial.print(x_pos);
+    Serial.print("  yballpos:  ");
+    Serial.print(y_ball_pos);
+    Serial.print("   xballpos:  ");
+    Serial.print(x_ball_pos);
 //    Serial.print("     Angle ofst from target: ");
 //    Serial.print(a_error);
 //    Serial.print("  R: ");
@@ -556,8 +564,10 @@ else {
 //    Serial.print(a_deg, 5);
 //    Serial.print("  bot_angle: ");
 //    Serial.print(a, 5);
-      Serial.print("  Filtered angle: ");
-      Serial.print(a_filtered, 5);
+//      Serial.print("  Filtered angle: ");
+//      Serial.print(r, 5);
+//      Serial.print("  FLAG: ");
+//      Serial.print(dir_flg);
 //      Serial.print("d error:  ");
 //      Serial.print(d_error);
 //      Serial.print("  BASESPEED  ");
@@ -566,8 +576,8 @@ else {
 //      Serial.print(a_error);
 //      Serial.print("  A out:  ");
 //      Serial.print(a_out_filtered);
-//    Serial.print("  STATE: ");
-//    Serial.print(state);
+    Serial.print("  STATE: ");
+    Serial.print(state);
     Serial.println();
 }
 
@@ -627,6 +637,28 @@ void lEncMove() {
   lPreviousDATA = digitalRead(lDT);
 }
 
+// Gets optimal angle error for points in space 
+double GetAngleError(double t) {
+  double error;
+  if (dir_flg == W){
+    if (r-t <= PI){
+      error = r - t;
+    }
+    else {
+      error = -2*PI - t + r;
+    }
+  }
+  else if (dir_flg == E){
+    if (r+t <= PI){
+      error = -(r + t);
+    }
+    else {
+      error = 2*PI -(t + r);
+    }
+  }
+  return error;
+}
+
 void Odometry() {
 
 //COMPASS
@@ -658,23 +690,31 @@ void Odometry() {
   
   a = heading*PI/180;
 
+  // Rid of discontintuity
+  if (a < 0) {
+    a_c = -a;
+    dir_flg = W;
+  }else {
+    a_c = a;
+    dir_flg = E;
+  }
+
   // Compute the filtered signal
-  a_filtered = lp_compass.filt(a);  
+  r = lp_compass.filt(a_c);  
 
-  // Center compass to start position 
-//  a_filtered = a_filtered - startingAngle;
-//  if (startingAngle > 0 && a_filtered < -PI) {
-//    a_filtered = 2*PI + a_filtered;
-//  } else if (startingAngle < 0 && a_filtered > PI) {
-//    a_filtered = a_filtered - 2*PI;
-//  }
+  double r_reversed;
 
+  if (dir_flg == E) {
+    r_reversed = -r;
+  } else
+    r_reversed = r;
+  
   if (abs(rcounter) > CLKS_PER_SAMPLE || abs(lcounter) > CLKS_PER_SAMPLE) {
     double rdistance = rcounter * DIST_PER_CLK;
     double ldistance = lcounter * DIST_PER_CLK;
     double dd = (rdistance + ldistance) / 2.0;
-    double dx = cos(a_filtered) * dd;
-    double dy = sin(a_filtered) * dd;
+    double dx = cos(r_reversed) * dd;
+    double dy = sin(r_reversed) * dd;
     x = x + dx;
     y = y + dy;
     
