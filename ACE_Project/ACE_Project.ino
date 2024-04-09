@@ -87,6 +87,8 @@ int y_pos_ooi = 316; //y position of object of interest
 // Ball in Camera Positional variables (Mapped to real world position)
 double x_ball_pos = 0;
 double y_ball_pos = 0;
+double last_x_ball_pos = 0;
+double last_y_ball_pos = 0;
 // Target Point (populated by external system)
 double x_target = 2; // W/O external input we can hardcode a position and try to go there
 double y_target = 0;
@@ -237,7 +239,7 @@ void setup() {
   StartOdometry();
   
   // ROBOT MODE (use without external input to change what robot does)
-  state = GOTO_BALL;
+  state = SETUP;
   //command = wait;
   command = start;
   x_target = 7;
@@ -315,7 +317,7 @@ void loop() {
           nxt_state = GOTO_BALL;
         }
         pixy.ccc.getBlocks();
-        if (pixy.ccc.numBlocks && millis() > init_ball_seen_time + 500) {
+        if (pixy.ccc.numBlocks && millis() > init_ball_seen_time + 100) {
             nxt_state = GOTO_BALL;
             init_ball_lost_time = millis();
             prev_a_error = 0;
@@ -337,10 +339,13 @@ void loop() {
           prev_d_error = 0;
           d_error = 0;
           
+        } else if (pixy.ccc.numBlocks) {
+          
         } else {
           init_ball_seen_time = millis(); // when ball is seen this will be the initial time it was seen
           nxt_state = GOTO_PT;
         }
+        
         // emergency
         if (command == e_stop) {
           nxt_state = HOLD;
@@ -356,7 +361,7 @@ void loop() {
         //IntakeSpeed = -50; //scan state indicator
 
         pixy.ccc.getBlocks();
-        if (pixy.ccc.numBlocks && millis() > init_ball_seen_time + 500) {
+        if (pixy.ccc.numBlocks && millis() > init_ball_seen_time + 100) {
             nxt_state = GOTO_BALL;
             init_ball_lost_time = millis();
             prev_a_error = 0;
@@ -365,11 +370,10 @@ void loop() {
             d_error = 0;
             last_time = millis();
             IntakeSpeed = 0;
-      //  if (pixy.ccc.numBlocks*0) {
-      //    nxt_state = GOTO_BALL;
-        //} else if (millis() > init_scan_time + 2500) {
-        //  nxt_state = GO_HOME;
+        } else if (pixy.ccc.numBlocks) {
+          nxt_state = SCAN;
         } else {
+          init_ball_seen_time = millis();
           nxt_state = SCAN;
         }
       break;
@@ -405,16 +409,18 @@ void loop() {
         }
 
         if (!pixy.ccc.numBlocks && millis() > init_ball_lost_time + 500) {
-          if (abs(x_ball_pos) < 0.155 && y_ball_pos < 0.28) { // If ball lost near intake drive forward to get ball, if far scan for ball
+          if (abs(last_x_ball_pos) < 0.155 && last_y_ball_pos < 0.28) { // If ball lost near intake drive forward to get ball, if far scan for ball
             nxt_state = GET_BALL;
             init_get_ball = millis();
           } else {
             nxt_state = SCAN;
             init_scan_time = millis();
           }
-        } else {
+        } else if(pixy.ccc.numBlocks) {
           nxt_state = GOTO_BALL;
           init_ball_lost_time = millis();
+          last_x_ball_pos = x_ball_pos;
+          last_y_ball_pos = y_ball_pos;
         }
         
         // emergency commands
@@ -424,7 +430,7 @@ void loop() {
           nxt_state = GO_HOME;
         }
         
-        nxt_state = GOTO_BALL; // for testing
+        //nxt_state = GOTO_BALL; // for testing
       break;
       case GET_BALL:
         // emergency
@@ -440,9 +446,9 @@ void loop() {
           nxt_state = GO_HOME;
           
         prev_a_error = 0;
-        prev_d_error = 0.5;
+        prev_d_error = 0;
         a_error = 0;
-        d_error = 0.5; // d_error makes robot drive forward
+        d_error = 0; // d_error makes robot drive forward
         IntakeSpeed = 60;
       break;
       case GO_HOME:
@@ -525,7 +531,10 @@ void loop() {
       RightMotorSpeed = 0;
       LeftMotorSpeed = 0;
     }
-    
+    if (state == GET_BALL) {
+      RightMotorSpeed = 120;
+      LeftMotorSpeed = 120;
+    }
     if (state == SCAN) {
       RightMotorSpeed = 50;
       LeftMotorSpeed = -45;
