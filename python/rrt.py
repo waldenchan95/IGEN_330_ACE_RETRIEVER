@@ -61,7 +61,7 @@ class RRTStar:
                     self.cost[i] = self.cost_to_node(new_node_index) + np.linalg.norm(np.array(self.nodes[i]) - np.array(self.nodes[new_node_index]))
 
     def plan_path(self):
-        for _ in range(self.max_iter):
+        for i in range(self.max_iter):
             target = self.generate_random_point()
             nearest_index = self.nearest_node(target)
             if self.is_valid_point(self.new_node(nearest_index, target)):
@@ -106,12 +106,13 @@ start = (0, 0)
 goal = (9, 9)
 obstacles = [(3, 3), (4, 4), (5, 5)]
 grid_size = (10, 10)
-max_iter = 1000
+max_iter = 10
 step_size = 1
 min_dist = 1.5  # Minimum distance to avoid obstacles
 
 # Create RRTStar instance and plan the path
 rrt_star = RRTStar(start, goal, obstacles, grid_size, max_iter, step_size, min_dist)
 path = rrt_star.plan_path()
-plot_pathfinding(start = start, goal = goal, obstacles =obstacles, grid_size= grid_size, max_iter = max_iter, min_dist=min_dist)
+print(path)
+plot_pathfinding(start = start, goal = goal, obstacles =obstacles, grid_size= grid_size, path = path)
 

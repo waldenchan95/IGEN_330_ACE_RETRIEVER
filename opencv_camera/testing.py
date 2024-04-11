@@ -15,6 +15,7 @@ cap = cv2.VideoCapture(0)
 
 # model
 model = YOLO("yolo-Weights/yolov8n.pt")
+from ..python import rf_communication as rf
 
 # object classes
 classNames = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck", "boat",
@@ -30,15 +31,15 @@ classNames = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "trai
               ]
 
 #black bag is our virtual plane = 37 x 37, 0,0 is top left corner
-black_bag_coords = {'x1' : 0, 'y1': 0, 
+area_of_interest_2d = {'x1' : 0, 'y1': 0, 
                     'x2': 727, 'y2': 0, 
                     'x3': 0, 'y3': 727, 
                     'x4' : 727, 'y4': 727}
 
-black_bag_arr = [[black_bag_coords["x1"], black_bag_coords["y1"]], 
-                            [black_bag_coords["x2"], black_bag_coords["y2"]], 
-                            [black_bag_coords["x3"], black_bag_coords["y3"]],
-                            [black_bag_coords["x4"], black_bag_coords["y4"]]]
+area_of_interest_2d = [[area_of_interest_2d["x1"], area_of_interest_2d["y1"]], 
+                            [area_of_interest_2d["x2"], area_of_interest_2d["y2"]], 
+                            [area_of_interest_2d["x3"], area_of_interest_2d["y3"]],
+                            [area_of_interest_2d["x4"], area_of_interest_2d["y4"]]]
 
 def get_coords_from_boxes(box):
     coord_map = {}
@@ -59,7 +60,7 @@ while True:
     # when do we want to start using marking an image for coordinates
     for r in results:
         boxes = r.boxes
-        H_matrix = homo.create_homography_matrix(marked_area_of_interest, black_bag_arr)
+        H_matrix = homo.create_homography_matrix(marked_area_of_interest, area_of_interest_2d)
         pts = []
         for box in boxes:
             coord_map = get_coords_from_boxes(box)
@@ -100,9 +101,24 @@ while True:
                 file.write(str(pts_transformed) + '\n')
             
             for pt in pts_transformed:
+                if pt[2] == 'sports ball' or 'apple' or 'orange':
+                    #send the node to arduino
+                    #[['-132926.57251083312' '-10472.124226163163' 'person']]
+                    x = int(pt[0])
+                    y = int(pt[0])
+                    if x < 0: #negative
+                        x = x + 128
+                    elif y < 0:
+                        y = y + 128
+                    node = [x, y]
+                    sendNode = rf.write_array_to_arduino(node, port = 'COM6', baud_rate=115200)
+                    if sendNode != True:
+                        print("Didn't send to arduino")
+                    
                 print(pt)
                 org = (int(float(pt[0])), int(float(pt[1])))
-                cv2.putText(img, str(pts_transformed), org, font, fontScale, color, thickness)
+                # cv2.circle(img, str(pts_transformed), org, font, fontScale, color, thickness)
+                cv2.circle(img, org, radius = 5, color = color)
 
             # src = np.array(marked_area_of_interest)
             # dst = np.array(black_bag_arr)

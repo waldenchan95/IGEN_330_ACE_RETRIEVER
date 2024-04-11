@@ -3,12 +3,17 @@ import cv2
 import math 
 import numpy as np
 # start webcam
-cap = cv2.VideoCapture(0)
-cap.set(3, 640)
-cap.set(4, 480)
+cap = cv2.VideoCapture(1)
+WIDTH  = int(cap.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH))   # float `width`
+HEIGHT = int(cap.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT))  # float `height`
+import time
+# cap.set(3, 640)
+# cap.set(4, 480)
 
 # model
 model = YOLO("yolo-Weights/yolov8n.pt")
+from ..python import rrt_star as rrt
+from ..python import rf_communication as rf
 
 # object classes
 classNames = ["person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck", "boat",
@@ -75,9 +80,48 @@ while True:
             with open('/Users/johna/walden_temp_proj/ace_retriever/opencv_camera/distance.csv', 'w') as file:
                 file.write(str(pts_transformed) + '\n')
             for pt in pts_transformed:
-                print(pt)
                 org = (int(float(pt[0])), int(float(pt[1])))
                 cv2.circle(img, str(pts_transformed), org, font, fontScale, color, thickness)
+            if pts_transformed:
+                start = [0,0]
+                obstacles = []
+                goals = []
+                for pts in pts_transformed:
+                    if pts[2] == 'person':
+                        obstacles.append([int(pts[0]), int(pts[1])])
+                    elif pts[2] == 'sports ball'  or 'apple' or 'orange':
+                        obstacles.append([int(pts[0]), int(pts[1])])
+                
+                #if multiple balls, go to the one closer to start
+
+                if len(goals) > 1:
+                    closest_ball = [math.inf, math.inf]
+                    for ball in goals:
+                        if ball[0] - start[0] <= closest_ball[0] and ball[1] - start[1] <= closest_ball[1]:
+                            closest_ball[0], closest_ball[1] = ball[0], ball[1]
+                else:
+                    closest_ball = goals
+                
+                width_scaled = 256
+                height_scaled = WIDTH/HEIGHT * width_scaled
+
+                bestPath = rrt.RRT(start = start, goal = closest_ball, obstacles = obstacles, width = width_scaled, height=height_scaled)
+                time.sleep(5)
+                with open('/Users/johna/walden_temp_proj/ace_retriever/opencv_camera/path.csv', 'w') as file:
+                    file.write(str(bestPath) + '\n')
+                
+                #ensure that bestPath is no more than 8 nodes
+                if len(bestPath) > 8:
+                    while len(bestPath) > 8:
+                        del bestPath[(len(bestPath)-1)/2]
+
+                #write the path to Arduino
+                time.sleep(5)
+                sentData = rf.write_array_to_arduino(bestPath)
+                if sentData != True:
+                    print("Didn't send to Arduino")
+
+
     cv2.imshow('Webcam', img) 
     if cv2.waitKey(1) == ord('q'):
         break

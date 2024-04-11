@@ -90,7 +90,6 @@ def find_area_of_interest():
         for i in range(len(coords)):
             org = coords[i]
             cv2.putText(frame, str((coords[i][0], coords[i][1])), org, font, fontScale, color, thickness)
-        
         cv2.imshow('frame',frame)
 
         key = cv2.waitKey(waitTime) 
@@ -109,4 +108,3 @@ def find_area_of_interest():
 
 
 # print(find_area_of_interest())
-
