@@ -73,7 +73,7 @@ unsigned long flt_last_time = 0;
 // Hard-iron calibration settings
 //Mag: (39.33, 1.70, -36.63) Hard offset: (1.93, -7.37, -32.25) Field: (42.62, 37.29, 44.31)
 const float hard_iron[3] = {
-  1.93,  -7.37,  -30.25
+  5.06,  -8.0,  -35.57
 };
 // Soft-iron calibration settings
 const float soft_iron[3][3] = {
@@ -129,7 +129,8 @@ const double aKd = 50; // derivative multiplier
 //const double cKi = 32; // integral multiplier
 //const double cKd = 11; // derivative multiplier
 const double cK = 66; // MASTER GAIN rotation
-const double cKi = 11; // integral multiplier
+//const double cKi = 11; // integral multiplier
+const double cKi = 15; // integral multiplier
 const double cKd = 14; // derivative multiplier
 // BaseSpeed PID constant
 const double dK = 86; // MASTER GAIN drive
@@ -255,11 +256,12 @@ void setup() {
   // ROBOT MODE (use without external input to change what robot does)
   state = SETUP;
   pt_valid = 1;
+  command = start;
 }
 
 void loop() {
 
-    command = digitalRead(commandPin);
+   // command = digitalRead(commandPin);
     
     /// EXECUTE ODOMETRY
     Odometry();
@@ -302,7 +304,9 @@ void loop() {
           d_error = 0;
 
           // GET POINT
-          ReadPoint();
+         // ReadPoint();
+         x_target = 3.35;
+         y_target = 4.65;
         }
         
         // emergency
@@ -431,6 +435,15 @@ void loop() {
         if (!pixy.ccc.numBlocks && millis() > init_ball_lost_time + 500) {
           if (abs(last_x_ball_pos) < 0.155 && last_y_ball_pos < 0.28) { // If ball lost near intake drive forward to get ball, if far scan for ball
             nxt_state = GO_HOME;
+            
+            //go home test using goto point
+            nxt_state = GOTO_PT;
+             x_target = -x_target;
+            y_target = -y_target;
+            x = 0;
+            y = 0;
+            //end of test
+            
             init_POUNCE = millis();
           } else {
             nxt_state = SCAN;
@@ -473,7 +486,7 @@ void loop() {
         a_error = 0;
         d_error = 0; 
         IntakeSpeed = 60;
-      break;
+      break;      
       case GO_HOME:
         if (command == e_stop) {
           nxt_state = HOLD;
@@ -481,7 +494,7 @@ void loop() {
           nxt_state = GO_HOME;
         } else if (x_error < 0.30 && y_error < 0.30) {
           nxt_state = WAIT;
-        }
+        } else nxt_state = GO_HOME;
         
         // Set target as 0, 0 and go home
         x_error = 0 - x;
