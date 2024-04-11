@@ -39,6 +39,9 @@ const int rDT = 5;    // DATA signal  // ORnge
 const int rCLK = 19;    // CLOCK signal //green
 const int lDT = 4;    // DATA signal // ornGE
 const int lCLK = 18;    // CLOCK signal //green
+// Coms
+const int commandPin = 12;
+const int xory = 13;
 
 // Motor PWM Frequency
 const int input_frequency = 150; // do not change
@@ -90,7 +93,7 @@ double y_ball_pos = 0;
 double last_x_ball_pos = 0;
 double last_y_ball_pos = 0;
 // Target Point (populated by external system)
-double x_target = 2; // W/O external input we can hardcode a position and try to go there
+double x_target = 0; // W/O external input we can hardcode a position and try to go there
 double y_target = 0;
 double x_error; // components of positional error only used in intermediate steps
 double y_error;
@@ -237,17 +240,27 @@ void setup() {
   pixy.init();
   // Setup Odometry
   StartOdometry();
+
+  pinMode(xory, OUTPUT);
+  pinMode(commandPin, INPUT);
+  pinMode(36, INPUT);
+  pinMode(34, INPUT);
+  pinMode(32, INPUT);
+  pinMode(30, INPUT);
+  pinMode(28, INPUT);
+  pinMode(26, INPUT);
+  pinMode(24, INPUT);
+  pinMode(22, INPUT);
   
   // ROBOT MODE (use without external input to change what robot does)
   state = SETUP;
-  //command = wait;
-  command = start;
-  x_target = 7;
-  y_target = 9;
   pt_valid = 1;
 }
 
 void loop() {
+
+    command = digitalRead(commandPin);
+    
     /// EXECUTE ODOMETRY
     Odometry();
 
@@ -283,6 +296,13 @@ void loop() {
           RightMotorSpeed = 0;
           LeftMotorSpeed = 0;
           IntakeSpeed = 0;
+          prev_a_error = 0;
+          a_error = 0;
+          prev_d_error = 0;
+          d_error = 0;
+
+          // GET POINT
+          ReadPoint();
         }
         
         // emergency
@@ -555,16 +575,20 @@ else {
 //    Serial.print(x_pos_ooi);
 //    Serial.print("yscreenpos: ");
 //    Serial.print(y_pos_ooi);
-    Serial.print("  yballpos:  ");
-    Serial.print(y_ball_pos);
-    Serial.print("   xballpos:  ");
-    Serial.print(x_ball_pos);
+//    Serial.print("  yballpos:  ");
+//    Serial.print(y_ball_pos);
+//    Serial.print("   xballpos:  ");
+//    Serial.print(x_ball_pos);
 //    Serial.print("     Angle ofst from target: ");
 //    Serial.print(a_error);
 //    Serial.print("  R: ");
 //    Serial.print(RightMotorSpeed);
 //    Serial.print("   L: ");
 //    Serial.print(LeftMotorSpeed);
+    Serial.print("   x_target:  ");
+    Serial.print(x_target);
+    Serial.print("  y_target:  ");
+    Serial.print(y_target);
 //    Serial.print("   x: ");
 //    Serial.print(x, 2);
 //    Serial.print("   y: ");
@@ -827,3 +851,80 @@ if ((lPreviousCLK == 0) && (lPreviousDATA == 0)) {
     }
   }       
  }
+
+/// COMS FUNCTIONS
+void ReadPoint() {
+  int x_temp;
+  int y_temp;
+  const int xory = 13; // x or y selector pin
+  // intermediate variables
+  // pin for x vs y
+  // set bool 0 for x
+  digitalWrite(xory, 0);
+  delay(100);
+  
+  // decode x
+  int b7 = digitalRead(36);
+  int b6 = digitalRead(34);
+  int b5 = digitalRead(32);
+  int b4 = digitalRead(30);
+  int b3 = digitalRead(28);
+  int b2 = digitalRead(26);
+  int b1 = digitalRead(24);
+  int b0 = digitalRead(22);
+  int value = (b7 << 7) | (b6 << 6) | (b5 << 5) | (b4 << 4) | (b3 << 3) | (b2 << 2) | (b1 << 1) | b0;
+  // Convert to pos/neg
+
+//  Serial.print(b7);
+//  Serial.print(b6);
+//  Serial.print(b5);
+//  Serial.print(b4);
+//  Serial.print(b3);
+//  Serial.print(b2);
+//  Serial.print(b1);
+//  Serial.print(b0);
+//  Serial.print("  ");
+  
+  if (value > 127) {
+    value = -1*(value - 128);
+  }
+  // Store
+  x_temp = value;
+  
+  // set bool 1 for y
+  digitalWrite(xory, 1);
+  // wait extremely short time (or dont, test without)
+  delay(100);
+
+  // decode y
+  b7 = digitalRead(36);
+  b6 = digitalRead(34);
+  b5 = digitalRead(32);
+  b4 = digitalRead(30);
+  b3 = digitalRead(28);
+  b2 = digitalRead(26);
+  b1 = digitalRead(24);
+  b0 = digitalRead(22);
+  value = (b7 << 7) | (b6 << 6) | (b5 << 5) | (b4 << 4) | (b3 << 3) | (b2 << 2) | (b1 << 1) | b0;
+
+//  Serial.print(b7);
+//  Serial.print(b6);
+//  Serial.print(b5);
+//  Serial.print(b4);
+//  Serial.print(b3);
+//  Serial.print(b2);
+//  Serial.print(b1);
+//  Serial.print(b0);
+//  Serial.print("  ");
+  
+  // Convert to pos/neg
+  if (value > 127) {
+    value = -1*(value - 128);
+  }
+  // Store
+  y_temp = value;
+
+  // Map to 10 by 10 metres
+  x_target = x_temp * (10.0/128.0);
+  y_target = y_temp * (10.0/128.0);
+}
