@@ -13,7 +13,7 @@ Pixy2 pixy;
 
 // OVERALL CONTROL
 // States
-enum States { SETUP, ANGLE_INIT_DELAY, WAIT, GOTO_PT, SCAN, GOTO_BALL, GET_BALL, GO_HOME, HOLD } state, nxt_state;
+enum States { SETUP, ANGLE_INIT_DELAY, WAIT, GOTO_PT, SCAN, GOTO_BALL, POUNCE, GO_HOME, HOLD } state, nxt_state;
 // Commands
 enum Commands { wait, start, e_stop, e_home } command;
 // Controlled externally: tells robot if there are any more balls it must go to
@@ -21,7 +21,7 @@ bool pt_valid = 0;
 
 // Variables
 unsigned long init_ball_seen_time; // When robot sees ball in pixy it waits a short time to determine if the object is consistent before going
-unsigned long init_get_ball; // used for get ball timer
+unsigned long init_POUNCE; // used for get ball timer
 unsigned long init_ball_lost_time; // Same but for losing the ball in camera
 unsigned long init_scan_time; // used for scan state timer
 
@@ -430,8 +430,8 @@ void loop() {
 
         if (!pixy.ccc.numBlocks && millis() > init_ball_lost_time + 500) {
           if (abs(last_x_ball_pos) < 0.155 && last_y_ball_pos < 0.28) { // If ball lost near intake drive forward to get ball, if far scan for ball
-            nxt_state = GET_BALL;
-            init_get_ball = millis();
+            nxt_state = GO_HOME;
+            init_POUNCE = millis();
           } else {
             nxt_state = SCAN;
             init_scan_time = millis();
@@ -452,23 +452,26 @@ void loop() {
         
         //nxt_state = GOTO_BALL; // for testing
       break;
-      case GET_BALL:
+      case POUNCE:
         // emergency
         if (command == e_stop) {
           nxt_state = HOLD;
         } else if (command == e_home) {
           nxt_state = GO_HOME;
         }
+        Serial.print(init_POUNCE);
+        Serial.print("poo ");
         // Drive forward at mid speed for short time;
-        if (millis() < init_get_ball + 600)
-          nxt_state = GET_BALL;
-        else
+        if (millis() < init_POUNCE + 600){
+         // nxt_state = POUNCE;
+         nxt_state = GO_HOME;
+        }else {
           nxt_state = GO_HOME;
-          
+        }  
         prev_a_error = 0;
         prev_d_error = 0;
         a_error = 0;
-        d_error = 0; // d_error makes robot drive forward
+        d_error = 0; 
         IntakeSpeed = 60;
       break;
       case GO_HOME:
@@ -485,6 +488,8 @@ void loop() {
         y_error = 0 - y;
         d_error = sqrt(pow(x_error, 2) + pow(y_error, 2));
         a_error = GetAngleError(atan2(y_error, x_error));
+
+        //nxt_state = GO_HOME;
       break;
       case HOLD:
         if (command == e_stop) {
@@ -551,7 +556,7 @@ void loop() {
       RightMotorSpeed = 0;
       LeftMotorSpeed = 0;
     }
-    if (state == GET_BALL) {
+    if (state == POUNCE) {
       RightMotorSpeed = 120;
       LeftMotorSpeed = 120;
     }
@@ -575,10 +580,10 @@ else {
 //    Serial.print(x_pos_ooi);
 //    Serial.print("yscreenpos: ");
 //    Serial.print(y_pos_ooi);
-//    Serial.print("  yballpos:  ");
-//    Serial.print(y_ball_pos);
-//    Serial.print("   xballpos:  ");
-//    Serial.print(x_ball_pos);
+//    Serial.print("  lastyballpos:  ");
+//    Serial.print(last_y_ball_pos);
+//    Serial.print("   lastxballpos:  ");
+//    Serial.print(last_x_ball_pos);
 //    Serial.print("     Angle ofst from target: ");
 //    Serial.print(a_error);
 //    Serial.print("  R: ");
@@ -597,10 +602,10 @@ else {
 //    Serial.print(a_deg, 5);
 //    Serial.print("  bot_angle: ");
 //    Serial.print(a, 5);
-//      Serial.print("  Filtered angle: ");
-//      Serial.print(r, 5);
-//      Serial.print("  FLAG: ");
-//      Serial.print(dir_flg);
+      Serial.print("  Filtered angle: ");
+      Serial.print(r, 5);
+      Serial.print("  FLAG: ");
+      Serial.print(dir_flg);
 //      Serial.print("d error:  ");
 //      Serial.print(d_error);
 //      Serial.print("  BASESPEED  ");
