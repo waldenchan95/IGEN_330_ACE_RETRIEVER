@@ -558,14 +558,14 @@ def RRT(start, goal, obstacles, width, height, search_radius=75, max_iter=1000):
 
 
 #############################TESTING PARAMS##############################################################
-# WIDTH, HEIGHT = 256, 256
-# startNode = np.array([0, 0])
-# endNode = np.array([250,256])
-# obstacleRadius = 10
-# search_radius = 50
-# listObstacleNodes = np.array([[20,20], [40,40], [50,50], [60, 60]])
-# path = RRT(startNode, endNode, listObstacleNodes, WIDTH, HEIGHT)
-# print(path)
+WIDTH, HEIGHT = 256, 256
+startNode = np.array([0, 0])
+endNode = np.array([250,256])
+obstacleRadius = 10
+search_radius = 50
+listObstacleNodes = np.array([[20,20], [40,40], [50,50], [60, 60]])
+path = RRT(startNode, endNode, listObstacleNodes, WIDTH, HEIGHT)
+print(path)
 
 
 """
