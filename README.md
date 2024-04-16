@@ -1,6 +1,6 @@
 # IGEN_330_ACE_RETRIEVER
 
-**Getting started with the Git**
+A school capstone project to develop a robot that can go around a tennis court and collect balls. 
 
 **Robot Hardware Pins**
 
